@@ -62,17 +62,19 @@ const PurchaseConfirmationScreen = ({ route, navigation }) => {
         const firstTicket = results[0];
         
         // POST /api/events/<id>/pay/ para obtener datos de PayU
+        // Usamos el config_type_id devuelto por la respuesta de /buy/ (firstTicket.config_type_id)
         const paymentResponse = await api.post(`/events/${eventId}/pay/`, {
-          amount: totalQuantity, // Total de tickets
+          config_type_id: firstTicket.config_type_id, // ✅ ID del TicketTypeEvent
+          amount: parseFloat(totalToPay) || parseFloat(totalAmount) || 0 // ✅ total monetario
         });
 
         console.log('Datos de pago:', paymentResponse.data);
 
-        // Navegar a pantalla de pago
+        // Navegar a pantalla de pago con paymentData completo
         navigation.replace('Payment', {
           eventId,
           eventData,
-          paymentData: paymentResponse.data,
+          paymentData: paymentResponse.data, // aquí pasamos todo el objeto tal cual
           tickets: results,
           totalAmount: totalToPay,
         });

@@ -11,7 +11,22 @@ import { WebView } from 'react-native-webview';
 import { X, RefreshCw } from 'lucide-react-native';
 
 const PaymentScreen = ({ route, navigation }) => {
-  const { eventId, eventData, paymentData, tickets, totalAmount } = route.params;
+  // Obtener paymentData de forma segura
+  const { paymentData = {}, eventData = {} } = route.params || {};
+  const {
+    event_name = eventData.event_name || eventData.event || 'Evento',
+    amount: rawAmount = paymentData.amount || 0,
+    referenceCode = paymentData.referenceCode || paymentData.reference || '',
+    currency = paymentData.currency || 'COP',
+    merchantId = paymentData.merchantId || '',
+    signature = paymentData.signature || '',
+    sandbox = paymentData.sandbox ?? true,
+    description = paymentData.description || ''
+  } = paymentData || {};
+
+  // Asegurar amount como número
+  const amount = Number(rawAmount) || 0;
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const webViewRef = useRef(null);
@@ -128,11 +143,11 @@ const PaymentScreen = ({ route, navigation }) => {
             <div class="info-title">Resumen de tu compra</div>
             <div class="info-row">
               <span class="info-label">Evento:</span>
-              <span class="info-value">${description}</span>
+              <span class="info-value">${event_name}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Total a pagar:</span>
-              <span class="info-value">$${parseFloat(amount).toLocaleString('es-CO')} ${currency}</span>
+              <span class="info-value">${`$${amount.toLocaleString('es-CO')} ${currency}`}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Referencia:</span>
