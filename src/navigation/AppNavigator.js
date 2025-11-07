@@ -21,6 +21,12 @@ import EventSearchScreen from '../screens/events/EventSearchScreen';
 import MyEventsScreen from '../screens/events/MyEventsScreen';
 import EventTicketsScreen from '../screens/events/EventTicketsScreen';
 
+// Purchase Screens
+import TicketSelectionScreen from '../screens/purchase/TicketSelectionScreen';
+import PurchaseConfirmationScreen from '../screens/purchase/PurchaseConfirmationScreen';
+import PaymentScreen from '../screens/purchase/PaymentScreen';
+import PurchaseSuccessScreen from '../screens/purchase/PurchaseSuccessScreen';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -52,11 +58,35 @@ const EventsStack = () => {
           title: 'Detalles del Evento',
         }}
       />
+      {/* Pantallas de compra */}
       <Stack.Screen
-        name="EventTickets"
-        component={EventTicketsScreen}
+        name="TicketSelection"
+        component={TicketSelectionScreen}
         options={{
-          title: 'Mis Tickets',
+          title: 'Seleccionar Tickets',
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseConfirmation"
+        component={PurchaseConfirmationScreen}
+        options={{
+          title: 'Confirmar Compra',
+        }}
+      />
+      <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{
+          headerShown: false, // Ocultar header en WebView
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseSuccess"
+        component={PurchaseSuccessScreen}
+        options={{
+          title: 'Compra Exitosa',
+          headerLeft: () => null, // Prevenir volver atrás
+          gestureEnabled: false, // Deshabilitar swipe back en iOS
         }}
       />
     </Stack.Navigator>
@@ -89,6 +119,37 @@ const SearchStack = () => {
         component={EventDetailsScreen}
         options={{
           title: 'Detalles del Evento',
+        }}
+      />
+      {/* Pantallas de compra */}
+      <Stack.Screen
+        name="TicketSelection"
+        component={TicketSelectionScreen}
+        options={{
+          title: 'Seleccionar Tickets',
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseConfirmation"
+        component={PurchaseConfirmationScreen}
+        options={{
+          title: 'Confirmar Compra',
+        }}
+      />
+      <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseSuccess"
+        component={PurchaseSuccessScreen}
+        options={{
+          title: 'Compra Exitosa',
+          headerLeft: () => null,
+          gestureEnabled: false,
         }}
       />
     </Stack.Navigator>
@@ -161,6 +222,37 @@ const HomeStack = () => {
         component={EventDetailsScreen}
         options={{
           title: 'Detalles del Evento',
+        }}
+      />
+      {/* Pantallas de compra */}
+      <Stack.Screen
+        name="TicketSelection"
+        component={TicketSelectionScreen}
+        options={{
+          title: 'Seleccionar Tickets',
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseConfirmation"
+        component={PurchaseConfirmationScreen}
+        options={{
+          title: 'Confirmar Compra',
+        }}
+      />
+      <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PurchaseSuccess"
+        component={PurchaseSuccessScreen}
+        options={{
+          title: 'Compra Exitosa',
+          headerLeft: () => null,
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen

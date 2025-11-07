@@ -35,7 +35,7 @@ const MyEventsScreen = ({ navigation }) => {
   const fetchMyEvents = async () => {
     try {
       // Ruta correcta del backend: /api/events/my/
-      const response = await api.get('/api/events/my/');
+      const response = await api.get('/events/my/');
       console.log('Mis eventos cargados:', response.data);
       setMyEvents(response.data || []);
     } catch (error) {

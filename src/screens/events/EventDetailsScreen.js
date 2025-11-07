@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Calendar, MapPin, Clock, Users, Tag } from 'lucide-react-native';
+import { Calendar, MapPin, Clock, Users, Tag, ShoppingCart } from 'lucide-react-native';
 import api from '../../api/axiosConfig';
 
 const EventDetailsScreen = ({ route, navigation }) => {
@@ -23,7 +23,7 @@ const EventDetailsScreen = ({ route, navigation }) => {
 
   const fetchEventDetails = async () => {
     try {
-      const response = await api.get(`/api/events/${eventId}/`);
+      const response = await api.get(`/events/${eventId}/`);
       console.log('Detalles del evento:', response.data);
       setEvent(response.data);
     } catch (error) {
@@ -68,6 +68,26 @@ const EventDetailsScreen = ({ route, navigation }) => {
     return categories[category] || category;
   };
 
+  const handleBuyTickets = () => {
+    if (!event) return;
+
+    if (event.status === 'cancelado') {
+      Alert.alert('Evento cancelado', 'Este evento ha sido cancelado');
+      return;
+    }
+
+    if (event.status === 'finalizado') {
+      Alert.alert('Evento finalizado', 'Este evento ya finalizó');
+      return;
+    }
+
+    // Navegar a la pantalla de selección de tickets
+    navigation.navigate('TicketSelection', {
+      eventId: event.id,
+      eventData: event,
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -87,149 +107,158 @@ const EventDetailsScreen = ({ route, navigation }) => {
   // Usar start_datetime si existe, si no usar date
   const eventDate = event.start_datetime || event.date;
   const eventEndDate = event.end_datetime;
+  const canBuyTickets = event.status === 'activo' || event.status === 'programado';
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Imagen del evento */}
-      <Image
-        source={{
-          uri: event.image || 'https://via.placeholder.com/400x300',
-        }}
-        style={styles.eventImage}
-      />
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        {/* Imagen del evento */}
+        <Image
+          source={{
+            uri: event.image || 'https://via.placeholder.com/400x300',
+          }}
+          style={styles.eventImage}
+        />
 
-      {/* Contenido */}
-      <View style={styles.content}>
-        {/* Nombre del evento */}
-        <Text style={styles.eventName}>{event.event_name}</Text>
+        {/* Contenido */}
+        <View style={styles.content}>
+          {/* Nombre del evento */}
+          <Text style={styles.eventName}>{event.event_name}</Text>
 
-        {/* Categoría */}
-        {event.category && (
-          <View style={styles.categoryBadge}>
-            <Tag size={16} color="#365486" />
-            <Text style={styles.categoryText}>{getCategoryText(event.category)}</Text>
+          {/* Categoría */}
+          {event.category && (
+            <View style={styles.categoryBadge}>
+              <Tag size={16} color="#365486" />
+              <Text style={styles.categoryText}>{getCategoryText(event.category)}</Text>
+            </View>
+          )}
+
+          {/* Descripción */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Descripción</Text>
+            <Text style={styles.description}>{event.description}</Text>
           </View>
-        )}
 
-        {/* Descripción */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Descripción</Text>
-          <Text style={styles.description}>{event.description}</Text>
-        </View>
+          {/* Detalles del evento */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Detalles</Text>
+            
+            {/* Fecha de inicio */}
+            {eventDate && (
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Calendar size={20} color="#365486" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Fecha de inicio</Text>
+                  <Text style={styles.detailValue}>{formatDate(eventDate)}</Text>
+                </View>
+              </View>
+            )}
 
-        {/* Detalles del evento */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalles</Text>
-          
-          {/* Fecha de inicio */}
-          {eventDate && (
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Calendar size={20} color="#365486" />
+            {/* Hora de inicio */}
+            {event.start_datetime && (
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Clock size={20} color="#365486" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Hora de inicio</Text>
+                  <Text style={styles.detailValue}>{formatTime(event.start_datetime)}</Text>
+                </View>
               </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Fecha de inicio</Text>
-                <Text style={styles.detailValue}>{formatDate(eventDate)}</Text>
+            )}
+
+            {/* Fecha y hora de fin */}
+            {eventEndDate && (
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Clock size={20} color="#365486" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Finaliza</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDate(eventEndDate)} a las {formatTime(eventEndDate)}
+                  </Text>
+                </View>
               </View>
+            )}
+
+            {/* Ubicación */}
+            {event.city && (
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <MapPin size={20} color="#365486" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Ubicación</Text>
+                  <Text style={styles.detailValue}>
+                    {event.city}
+                    {event.department && `, ${event.department}`}
+                    {event.country && ` - ${event.country}`}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Organizador */}
+            {event.organizer && (
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Users size={20} color="#365486" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Organizador</Text>
+                  <Text style={styles.detailValue}>{event.organizer}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Estado del evento */}
+          <View style={styles.statusContainer}>
+            <View style={[
+              styles.statusBadge,
+              event.status === 'activo' && styles.statusActive,
+              event.status === 'programado' && styles.statusScheduled,
+              event.status === 'cancelado' && styles.statusCancelled,
+              event.status === 'finalizado' && styles.statusFinished,
+            ]}>
+              <Text style={styles.statusText}>
+                {event.status === 'activo' && 'Activo'}
+                {event.status === 'programado' && 'Programado'}
+                {event.status === 'cancelado' && 'Cancelado'}
+                {event.status === 'finalizado' && 'Finalizado'}
+              </Text>
             </View>
-          )}
-
-          {/* Hora de inicio */}
-          {event.start_datetime && (
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Clock size={20} color="#365486" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Hora de inicio</Text>
-                <Text style={styles.detailValue}>{formatTime(event.start_datetime)}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Fecha y hora de fin */}
-          {eventEndDate && (
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Clock size={20} color="#365486" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Finaliza</Text>
-                <Text style={styles.detailValue}>
-                  {formatDate(eventEndDate)} a las {formatTime(eventEndDate)}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Ubicación */}
-          {event.city && (
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <MapPin size={20} color="#365486" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Ubicación</Text>
-                <Text style={styles.detailValue}>
-                  {event.city}
-                  {event.department && `, ${event.department}`}
-                  {event.country && ` - ${event.country}`}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Organizador */}
-          {event.organizer && (
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Users size={20} color="#365486" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Organizador</Text>
-                <Text style={styles.detailValue}>{event.organizer}</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Estado del evento */}
-        <View style={styles.statusContainer}>
-          <View style={[
-            styles.statusBadge,
-            event.status === 'activo' && styles.statusActive,
-            event.status === 'programado' && styles.statusScheduled,
-            event.status === 'cancelado' && styles.statusCancelled,
-            event.status === 'finalizado' && styles.statusFinished,
-          ]}>
-            <Text style={styles.statusText}>
-              {event.status === 'activo' && 'Activo'}
-              {event.status === 'programado' && 'Programado'}
-              {event.status === 'cancelado' && 'Cancelado'}
-              {event.status === 'finalizado' && 'Finalizado'}
-            </Text>
           </View>
         </View>
+      </ScrollView>
 
-        {/* Botón de comprar (si el evento está activo o programado) */}
-        {(event.status === 'activo' || event.status === 'programado') && (
+      {/* Botón de comprar (fijo en la parte inferior) */}
+      {canBuyTickets && (
+        <View style={styles.footer}>
           <TouchableOpacity
             style={styles.buyButton}
-            onPress={() => {
-              // Aquí implementar la navegación a compra de tickets
-              Alert.alert('Comprar tickets', 'Funcionalidad en desarrollo');
-            }}
+            onPress={handleBuyTickets}
           >
+            <ShoppingCart size={20} color="#fff" />
             <Text style={styles.buyButtonText}>Comprar entradas</Text>
           </TouchableOpacity>
-        )}
-      </View>
-    </ScrollView>
+        </View>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f5fb' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f0f5fb' 
+  },
+  scrollView: {
+    flex: 1,
+  },
   loadingContainer: { 
     flex: 1, 
     justifyContent: 'center', 
@@ -253,7 +282,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0' 
   },
   content: { 
-    padding: 20 
+    padding: 20,
+    paddingBottom: 100, // Espacio para el botón flotante
   },
   eventName: { 
     fontSize: 28, 
@@ -345,12 +375,29 @@ const styles = StyleSheet.create({
     fontWeight: 'bold', 
     color: '#fff' 
   },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   buyButton: {
+    flexDirection: 'row',
     backgroundColor: '#365486',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

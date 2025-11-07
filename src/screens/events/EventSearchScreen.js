@@ -54,7 +54,7 @@ const EventSearchScreen = ({ navigation }) => {
   const searchEvents = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/events/');
+      const response = await api.get('/events/');
       setEvents(response.data || []);
     } catch (error) {
       console.error('Error al buscar eventos:', error);

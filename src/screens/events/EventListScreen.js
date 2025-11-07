@@ -32,7 +32,7 @@ const EventListScreen = ({ navigation }) => {
   const fetchEvents = async () => {
     try {
       // Ruta correcta del backend: /api/events/
-      const response = await api.get('/api/events/');
+      const response = await api.get('/events/');
       console.log('Eventos cargados:', response.data);
       setEvents(response.data || []);
     } catch (error) {

@@ -40,7 +40,7 @@ const EventTicketsScreen = ({ route, navigation }) => {
   const fetchTickets = async () => {
     try {
       // Endpoint para obtener los tickets del usuario para este evento
-      const response = await api.get(`/api/events/${eventId}/my-tickets/`);
+      const response = await api.get(`/events/${eventId}/my-tickets/`);
       setTickets(response.data || []);
     } catch (error) {
       console.error('Error al cargar tickets:', error);
