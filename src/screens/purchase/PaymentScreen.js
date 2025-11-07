@@ -11,22 +11,7 @@ import { WebView } from 'react-native-webview';
 import { X, RefreshCw } from 'lucide-react-native';
 
 const PaymentScreen = ({ route, navigation }) => {
-  // Obtener paymentData de forma segura
-  const { paymentData = {}, eventData = {} } = route.params || {};
-  const {
-    event_name = eventData.event_name || eventData.event || 'Evento',
-    amount: rawAmount = paymentData.amount || 0,
-    referenceCode = paymentData.referenceCode || paymentData.reference || '',
-    currency = paymentData.currency || 'COP',
-    merchantId = paymentData.merchantId || '',
-    signature = paymentData.signature || '',
-    sandbox = paymentData.sandbox ?? true,
-    description = paymentData.description || ''
-  } = paymentData || {};
-
-  // Asegurar amount como número
-  const amount = Number(rawAmount) || 0;
-  
+  const { eventId, eventData, paymentData, tickets, totalAmount } = route.params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const webViewRef = useRef(null);
@@ -143,11 +128,11 @@ const PaymentScreen = ({ route, navigation }) => {
             <div class="info-title">Resumen de tu compra</div>
             <div class="info-row">
               <span class="info-label">Evento:</span>
-              <span class="info-value">${event_name}</span>
+              <span class="info-value">${description}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Total a pagar:</span>
-              <span class="info-value">${`$${amount.toLocaleString('es-CO')} ${currency}`}</span>
+              <span class="info-value">$${parseFloat(amount).toLocaleString('es-CO')} ${currency}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Referencia:</span>
@@ -192,41 +177,44 @@ const PaymentScreen = ({ route, navigation }) => {
   };
 
   const handleNavigationStateChange = (navState) => {
-    const { url } = navState;
-    console.log('URL actual:', url);
+  const { url } = navState;
+  console.log('🌐 URL actual:', url);
 
-    // Detectar respuesta de PayU
-    if (url && (url.includes('pago-exitoso') || url.includes('responseUrl'))) {
-      // Verificar si el pago fue exitoso
-      if (url.includes('transactionState=4') || url.includes('estado=aprobado')) {
-        // Pago aprobado
-        navigation.replace('PurchaseSuccess', {
-          eventId,
-          eventData,
-          tickets,
-          totalAmount,
-          referenceCode: paymentData.referenceCode,
-        });
-      } else if (url.includes('transactionState=6') || url.includes('estado=rechazado')) {
-        // Pago rechazado
-        Alert.alert(
-          'Pago rechazado',
-          'El pago no pudo ser procesado. Por favor, verifica tu información e intenta nuevamente.',
-          [
-            {
-              text: 'Reintentar',
-              onPress: () => webViewRef.current?.reload(),
-            },
-            {
-              text: 'Cancelar',
-              onPress: () => navigation.goBack(),
-              style: 'cancel',
-            },
-          ]
-        );
-      }
+  if (!url) return;
+
+  // ✅ Detectar redirección de PayU (pago exitoso o fallido)
+  if (url.includes('pago-exitoso') || url.includes('responseUrl')) {
+    // Extraer parámetros si vienen en la URL
+    const hasApproved = url.includes('transactionState=4') || url.toLowerCase().includes('estado=aprobado');
+    const hasDeclined = url.includes('transactionState=6') || url.toLowerCase().includes('estado=rechazado');
+
+    // ✅ Si el pago fue aprobado
+    if (hasApproved) {
+      console.log('✅ Pago aprobado detectado');
+      navigation.replace('PurchaseSuccess', {
+        eventId: route?.params?.eventId ?? null,
+        eventData: route?.params?.eventData ?? null,
+        tickets: route?.params?.tickets ?? [],
+        totalAmount: route?.params?.totalAmount ?? 0,
+        referenceCode: paymentData?.referenceCode ?? '',
+      });
     }
-  };
+
+    // ❌ Si fue rechazado
+    else if (hasDeclined) {
+      console.log('❌ Pago rechazado detectado');
+      Alert.alert(
+        'Pago rechazado',
+        'El pago no pudo ser procesado. Verifica tu información e intenta nuevamente.',
+        [
+          { text: 'Reintentar', onPress: () => webViewRef.current?.reload() },
+          { text: 'Cancelar', onPress: () => navigation.goBack(), style: 'cancel' },
+        ]
+      );
+    }
+  }
+};
+
 
   const handleClose = () => {
     Alert.alert(

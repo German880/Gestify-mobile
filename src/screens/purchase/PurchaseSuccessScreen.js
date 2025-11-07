@@ -169,9 +169,20 @@ const PurchaseSuccessScreen = ({ route, navigation }) => {
 
       {/* Botones de acción */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleGoHome}>
-          <Text style={styles.secondaryButtonText}>Volver al inicio</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() =>
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'EventList' }], 
+          
+          })
+        }
+      >
+        <Text Text style={styles.secondaryButtonText}>Volver a eventos</Text>
+      </TouchableOpacity>
+
+
 
         <TouchableOpacity style={styles.primaryButton} onPress={handleViewTickets}>
           <Eye size={20} color="#fff" />
@@ -361,6 +372,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 30,
+    marginBottom: 10,
     backgroundColor: '#fff',
     padding: 16,
     gap: 12,
@@ -373,34 +389,50 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   secondaryButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#365486',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  flex: 1,                         // 👈 Ocupa mismo espacio que el otro
+  backgroundColor: '#e2e8f0',      // gris claro
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 14,
+  borderRadius: 12,
+  marginHorizontal: 5,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.05,
+  shadowRadius: 3,
+  elevation: 2,
+},
+
   secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#365486',
-  },
+  color: '#1e293b',
+  fontSize: 15,
+  fontWeight: '600',
+},
+
   primaryButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#365486',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
+  flex: 1,                         // 👈 Ocupa mismo espacio horizontal
+  backgroundColor: '#365486',      // azul principal
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 14,
+  borderRadius: 12,
+  marginHorizontal: 5,             // espacio entre botones
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+  elevation: 3,
+},
+
   primaryButtonText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
+  color: '#fff',
+  fontSize: 15,
+  fontWeight: '600',
+  marginLeft: 8,                   // separa texto del ícono
+},
+
 });
 
 export default PurchaseSuccessScreen;
