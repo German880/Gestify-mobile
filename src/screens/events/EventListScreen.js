@@ -9,8 +9,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Modal,
+  ScrollView,
 } from 'react-native';
-import { Search, Filter, Calendar, MapPin, Users, ChevronRight } from 'lucide-react-native';
+import {
+  Search,
+  Filter,
+  X,
+  Calendar,
+  MapPin,
+  DollarSign,
+  ChevronRight,
+  SlidersHorizontal,
+} from 'lucide-react-native';
 import api from '../../api/axiosConfig';
 
 const EventListScreen = ({ navigation }) => {
@@ -19,7 +30,25 @@ const EventListScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('todos');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  // Estados de filtros
+  const [filters, setFilters] = useState({
+    city: '',
+    priceMin: '',
+    priceMax: '',
+    category: '',
+  });
+
+  // Categorías disponibles
+  const categories = [
+    'Música',
+    'Deporte',
+    'Educación',
+    'Tecnología',
+    'Arte',
+    'Otros',
+  ];
 
   useEffect(() => {
     fetchEvents();
@@ -27,11 +56,10 @@ const EventListScreen = ({ navigation }) => {
 
   useEffect(() => {
     filterEvents();
-  }, [searchQuery, selectedStatus, events]);
+  }, [searchQuery, filters, events]);
 
   const fetchEvents = async () => {
     try {
-      // Ruta correcta del backend: /api/events/
       const response = await api.get('/events/');
       console.log('Eventos cargados:', response.data);
       setEvents(response.data || []);
@@ -49,8 +77,24 @@ const EventListScreen = ({ navigation }) => {
     fetchEvents();
   };
 
+  // Función para verificar si un evento está pasado
+  const isEventPassed = (eventDate) => {
+    const now = new Date();
+    const eventEnd = new Date(eventDate);
+    return eventEnd < now;
+  };
+
   const filterEvents = () => {
     let filtered = [...events];
+
+    // Filtrar solo eventos ACTIVOS
+    filtered = filtered.filter(event => event.status === 'activo');
+
+    // Filtrar eventos que ya pasaron
+    filtered = filtered.filter(event => {
+      const eventDate = event.end_datetime || event.start_datetime || event.date;
+      return !isEventPassed(eventDate);
+    });
 
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
@@ -61,12 +105,56 @@ const EventListScreen = ({ navigation }) => {
       );
     }
 
-    // Filtrar por estado
-    if (selectedStatus !== 'todos') {
-      filtered = filtered.filter(event => event.status === selectedStatus);
+    // Filtrar por ciudad
+    if (filters.city.trim()) {
+      filtered = filtered.filter(event =>
+        event.city?.toLowerCase().includes(filters.city.toLowerCase())
+      );
+    }
+
+    // Filtrar por rango de precio
+    if (filters.priceMin || filters.priceMax) {
+      filtered = filtered.filter(event => {
+        // Obtener el precio mínimo de los tipos de tickets
+        const prices = event.types_of_tickets_available?.map(t => parseFloat(t.price)) || [];
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+
+        if (filters.priceMin && minPrice < parseFloat(filters.priceMin)) {
+          return false;
+        }
+        if (filters.priceMax && minPrice > parseFloat(filters.priceMax)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    // Filtrar por categoría
+    if (filters.category) {
+      filtered = filtered.filter(event =>
+        event.category?.toLowerCase() === filters.category.toLowerCase()
+      );
     }
 
     setFilteredEvents(filtered);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      city: '',
+      priceMin: '',
+      priceMax: '',
+      category: '',
+    });
+  };
+
+  const hasActiveFilters = () => {
+    return (
+      filters.city ||
+      filters.priceMin ||
+      filters.priceMax ||
+      filters.category
+    );
   };
 
   const formatDate = (dateString) => {
@@ -97,9 +185,12 @@ const EventListScreen = ({ navigation }) => {
   };
 
   const renderEventCard = ({ item: event }) => {
-    // Usar start_datetime si existe, si no usar date
     const eventDate = event.start_datetime || event.date;
     const dateInfo = formatDate(eventDate);
+
+    // Obtener el precio mínimo
+    const prices = event.types_of_tickets_available?.map(t => parseFloat(t.price)) || [];
+    const minPrice = prices.length > 0 ? Math.min(...prices) : null;
 
     return (
       <TouchableOpacity
@@ -151,6 +242,15 @@ const EventListScreen = ({ navigation }) => {
                 </Text>
               </View>
             )}
+
+            {minPrice !== null && (
+              <View style={styles.detailRow}>
+                <DollarSign size={16} color="#64748b" />
+                <Text style={styles.detailText} numberOfLines={1}>
+                  Desde ${minPrice.toLocaleString('es-CO')}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.eventFooter}>
@@ -162,28 +262,130 @@ const EventListScreen = ({ navigation }) => {
     );
   };
 
-  const renderStatusFilter = () => (
-    <View style={styles.filterContainer}>
-      {['todos', 'activo', 'programado', 'finalizado'].map((status) => (
-        <TouchableOpacity
-          key={status}
-          style={[
-            styles.filterChip,
-            selectedStatus === status && styles.filterChipActive,
-          ]}
-          onPress={() => setSelectedStatus(status)}
-        >
-          <Text
-            style={[
-              styles.filterChipText,
-              selectedStatus === status && styles.filterChipTextActive,
-            ]}
+  const FilterModal = () => (
+    <Modal
+      visible={filterModalVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setFilterModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Filtros</Text>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setFilterModalVisible(false)}
+            >
+              <X size={24} color="#1e293b" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.filterScroll}
+            showsVerticalScrollIndicator={false}
           >
-            {status === 'todos' ? 'Todos' : getStatusText(status)}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+            {/* Ubicación - Ciudad */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>🌍 Ubicación</Text>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Ej: Neiva, Bogotá..."
+                value={filters.city}
+                onChangeText={(text) => setFilters({ ...filters, city: text })}
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
+
+            {/* Categoría */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>🎭 Categoría</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      filters.category === cat && styles.categoryChipActive,
+                    ]}
+                    onPress={() =>
+                      setFilters({
+                        ...filters,
+                        category:
+                          filters.category === cat ? '' : cat,
+                      })
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        filters.category === cat &&
+                          styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Rango de Precio */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>💰 Rango de Precio</Text>
+              <View style={styles.priceInputs}>
+                <View style={styles.priceInput}>
+                  <Text style={styles.priceLabel}>Min</Text>
+                  <TextInput
+                    style={styles.filterInput}
+                    placeholder="0"
+                    value={filters.priceMin}
+                    onChangeText={(text) =>
+                      setFilters({ ...filters, priceMin: text })
+                    }
+                    keyboardType="numeric"
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+                <Text style={styles.priceSeparator}>-</Text>
+                <View style={styles.priceInput}>
+                  <Text style={styles.priceLabel}>Max</Text>
+                  <TextInput
+                    style={styles.filterInput}
+                    placeholder="999999"
+                    value={filters.priceMax}
+                    onChangeText={(text) =>
+                      setFilters({ ...filters, priceMax: text })
+                    }
+                    keyboardType="numeric"
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Footer con acciones */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={clearFilters}
+            >
+              <Text style={styles.clearButtonText}>Limpiar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={() => {
+                setFilterModalVisible(false);
+              }}
+            >
+              <Text style={styles.applyButtonText}>Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 
   if (loading) {
@@ -208,14 +410,84 @@ const EventListScreen = ({ navigation }) => {
             onChangeText={setSearchQuery}
             placeholderTextColor="#94a3b8"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={20} color="#64748b" />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <Filter size={20} color="#365486" />
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            hasActiveFilters() && styles.filterButtonActive,
+          ]}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <SlidersHorizontal
+            size={20}
+            color={hasActiveFilters() ? '#fff' : '#365486'}
+          />
+          {hasActiveFilters() && <View style={styles.filterDot} />}
         </TouchableOpacity>
       </View>
 
-      {/* Filtros de estado */}
-      {renderStatusFilter()}
+      {/* Chips de filtros activos */}
+      {hasActiveFilters() && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.activeFilters}>
+              {filters.city && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>📍 {filters.city}</Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setFilters({ ...filters, city: '' })
+                    }
+                  >
+                    <X size={14} color="#365486" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {filters.category && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>
+                    🎭 {filters.category}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setFilters({ ...filters, category: '' })
+                    }
+                  >
+                    <X size={14} color="#365486" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {filters.priceMin && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>
+                    💰 ${filters.priceMin}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setFilters({ ...filters, priceMin: '' })
+                    }
+                  >
+                    <X size={14} color="#365486" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Título de eventos activos */}
+      <View style={styles.titleContainer}>
+        <Text style={styles.titleText}>Eventos Activos</Text>
+        <Text style={styles.countText}>
+          {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
 
       {/* Lista de eventos */}
       <FlatList
@@ -224,18 +496,27 @@ const EventListScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#365486']} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#365486']}
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No se encontraron eventos</Text>
+            <Text style={styles.emptyText}>No hay eventos activos</Text>
             <Text style={styles.emptySubText}>
-              {searchQuery ? 'Intenta con otra búsqueda' : 'Aún no hay eventos disponibles'}
+              {searchQuery || hasActiveFilters()
+                ? 'Intenta con otros criterios de búsqueda'
+                : 'Vuelve pronto para ver nuevos eventos'}
             </Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Modal de filtros */}
+      <FilterModal />
     </View>
   );
 };
@@ -287,35 +568,64 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  filterContainer: {
+  filterButtonActive: {
+    backgroundColor: '#365486',
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+  },
+  activeFiltersContainer: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingVertical: 12,
+  },
+  activeFilters: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  activeFilterText: {
+    fontSize: 14,
+    color: '#365486',
+    fontWeight: '500',
+  },
+  titleContainer: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: '#fff',
-    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  titleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#365486',
   },
-  filterChipActive: {
-    backgroundColor: '#365486',
-    borderColor: '#365486',
-  },
-  filterChipText: {
+  countText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#64748b',
-  },
-  filterChipTextActive: {
-    color: '#fff',
   },
   listContainer: {
     padding: 20,
@@ -427,6 +737,134 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  modalClose: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterScroll: {
+    padding: 20,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  filterInput: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  categoryChipActive: {
+    backgroundColor: '#365486',
+    borderColor: '#365486',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
+  },
+  priceInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  priceInput: {
+    flex: 1,
+  },
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  priceSeparator: {
+    fontSize: 16,
+    color: '#64748b',
+    marginBottom: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  clearButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#365486',
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

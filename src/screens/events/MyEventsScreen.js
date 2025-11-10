@@ -34,7 +34,6 @@ const MyEventsScreen = ({ navigation }) => {
 
   const fetchMyEvents = async () => {
     try {
-      // Ruta correcta del backend: /api/events/my/
       const response = await api.get('/events/my/');
       console.log('Mis eventos cargados:', response.data);
       setMyEvents(response.data || []);
@@ -52,7 +51,10 @@ const MyEventsScreen = ({ navigation }) => {
     fetchMyEvents();
   };
 
+  // ✅ FUNCIÓN CORREGIDA: Formato de fecha con timezone correcto
   const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', {
       weekday: 'short',
@@ -62,22 +64,58 @@ const MyEventsScreen = ({ navigation }) => {
     });
   };
 
+  // ✅ FUNCIÓN CORREGIDA: Formato de hora
   const formatTime = (dateString) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
     return date.toLocaleTimeString('es-ES', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   };
 
-  const getFilteredEvents = () => {
-    const now = new Date();
+  // ✅ FUNCIÓN CORREGIDA: Ajusta fecha si no tiene hora
+  const getEventEndDateForComparison = (eventData) => {
+    let dateString = eventData.end_datetime || 
+                     eventData.start_datetime || 
+                     eventData.date;
     
+    if (!dateString) return null;
+    
+    const date = new Date(dateString);
+    
+    // ✅ Si es una fecha sin hora (solo 8 caracteres: "YYYY-MM-DD")
+    // Agregar 24 horas para que el evento sea válido todo el día
+    if (dateString.length === 10) {
+      // Es solo una fecha, agregar un día completo
+      date.setDate(date.getDate() + 1);
+      date.setHours(0, 0, 0, 0); // Inicio del día siguiente
+    }
+    
+    return date;
+  };
+
+  // ✅ FUNCIÓN CORREGIDA: Verifica si un evento ha TERMINADO
+  const isEventPassed = (eventData) => {
+    const now = new Date();
+    const eventEndDate = getEventEndDateForComparison(eventData);
+    
+    if (!eventEndDate) return false;
+    
+    // El evento está pasado si la fecha de fin es menor que ahora
+    return eventEndDate < now;
+  };
+
+  const getFilteredEvents = () => {
     switch (selectedTab) {
       case 'proximos':
-        return myEvents.filter(event => new Date(event.date) >= now);
+        // ✅ CORRECTO: Solo eventos que NO han pasado
+        return myEvents.filter(event => !isEventPassed(event));
       case 'pasados':
-        return myEvents.filter(event => new Date(event.date) < now);
+        // ✅ CORRECTO: Solo eventos que SÍ han pasado
+        return myEvents.filter(event => isEventPassed(event));
       default:
         return myEvents;
     }
@@ -113,6 +151,9 @@ const MyEventsScreen = ({ navigation }) => {
       ticket => ticket.status === 'comprada'
     ).length || 0;
 
+    // ✅ Usa end_datetime si existe, si no start_datetime, si no date
+    const eventDate = eventData.end_datetime || eventData.start_datetime || eventData.date;
+
     return (
       <TouchableOpacity
         style={styles.eventCard}
@@ -124,10 +165,10 @@ const MyEventsScreen = ({ navigation }) => {
         }
         activeOpacity={0.7}
       >
-        {/* Imagen del evento - placeholder por ahora */}
+        {/* Imagen del evento */}
         <Image
           source={{
-            uri: 'https://via.placeholder.com/400x200',
+            uri: eventData.image || 'https://via.placeholder.com/400x200',
           }}
           style={styles.eventImage}
         />
@@ -135,7 +176,9 @@ const MyEventsScreen = ({ navigation }) => {
         {/* Badge de mis tickets */}
         <View style={styles.ticketBadge}>
           <Ticket size={14} color="#fff" />
-          <Text style={styles.ticketBadgeText}>{totalTickets} Ticket{totalTickets !== 1 ? 's' : ''}</Text>
+          <Text style={styles.ticketBadgeText}>
+            {totalTickets} Ticket{totalTickets !== 1 ? 's' : ''}
+          </Text>
         </View>
 
         {/* Contenido */}
@@ -149,12 +192,12 @@ const MyEventsScreen = ({ navigation }) => {
           <View style={styles.eventInfo}>
             <View style={styles.infoRow}>
               <Calendar size={16} color="#64748b" />
-              <Text style={styles.infoText}>{formatDate(eventData.date)}</Text>
+              <Text style={styles.infoText}>{formatDate(eventData.start_datetime || eventData.date)}</Text>
             </View>
 
             <View style={styles.infoRow}>
               <Clock size={16} color="#64748b" />
-              <Text style={styles.infoText}>{formatTime(eventData.date)}</Text>
+              <Text style={styles.infoText}>{formatTime(eventData.start_datetime || eventData.date)}</Text>
             </View>
 
             {eventData.city && (
@@ -249,6 +292,11 @@ const MyEventsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Encabezado */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Mis Eventos</Text>
+      </View>
+
       {/* Tabs */}
       {renderTabs()}
 
@@ -267,21 +315,21 @@ const MyEventsScreen = ({ navigation }) => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ticket size={64} color="#cbd5e1" strokeWidth={1.5} />
-            <Text style={styles.emptyText}>No tienes eventos</Text>
-            <Text style={styles.emptySubText}>
+            <AlertCircle size={48} color="#cbd5e1" strokeWidth={1.5} />
+            <Text style={styles.emptyText}>
               {selectedTab === 'proximos'
-                ? 'Aún no has comprado tickets para próximos eventos'
+                ? 'No tienes eventos próximos'
                 : selectedTab === 'pasados'
                 ? 'No tienes eventos pasados'
-                : 'Explora y compra entradas para eventos'}
+                : 'No tienes eventos'}
             </Text>
-            <TouchableOpacity
-              style={styles.exploreButton}
-              onPress={() => navigation.navigate('Events')}
-            >
-              <Text style={styles.exploreButtonText}>Explorar eventos</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptySubText}>
+              {selectedTab === 'proximos'
+                ? 'Compra tickets para eventos futuros'
+                : selectedTab === 'pasados'
+                ? 'Los eventos que completes aparecerán aquí'
+                : 'Aún no has comprado tickets'}
+            </Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
@@ -299,28 +347,40 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#64748b',
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+  header: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#365486',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 12,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#f1f5f9',
+    alignItems: 'center',
   },
   tabActive: {
     backgroundColor: '#365486',
@@ -380,7 +440,7 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
@@ -388,44 +448,39 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   infoText: {
-    flex: 1,
     fontSize: 14,
     color: '#64748b',
+    flex: 1,
   },
   ticketsStatusContainer: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
     marginBottom: 12,
   },
   ticketsStatusTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#1e293b',
     marginBottom: 8,
-    textTransform: 'uppercase',
   },
   ticketsStatusList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   ticketStatusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    gap: 6,
+    gap: 8,
   },
   ticketStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   ticketStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -450,11 +505,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-    paddingHorizontal: 40,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#1e293b',
     marginTop: 16,
     marginBottom: 8,
@@ -463,18 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 24,
-  },
-  exploreButton: {
-    backgroundColor: '#365486',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  exploreButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    paddingHorizontal: 20,
   },
 });
 

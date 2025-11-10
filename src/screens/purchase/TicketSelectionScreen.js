@@ -208,7 +208,7 @@ const TicketSelectionScreen = ({ route, navigation }) => {
           <View style={styles.eventInfo}>
             <Text style={styles.eventTitle}>{eventData?.event_name || 'Evento'}</Text>
             <Text style={styles.eventDate}>
-              {eventData?.date && new Date(eventData.date).toLocaleDateString('es-ES', {
+              {(eventData?.start_datetime || eventData?.date) && new Date(eventData.start_datetime || eventData.date).toLocaleDateString('es-ES', {
                 weekday: 'long',
                 day: 'numeric',
                 month: 'long',

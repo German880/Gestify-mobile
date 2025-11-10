@@ -162,13 +162,13 @@ const PurchaseConfirmationScreen = ({ route, navigation }) => {
           <View style={styles.eventCard}>
             <Text style={styles.eventName}>{eventData?.event_name || 'Evento'}</Text>
             <Text style={styles.eventDate}>
-              {eventData?.date &&
-                new Date(eventData.date).toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+              {(eventData?.start_datetime || eventData?.date) &&
+              new Date(eventData.start_datetime || eventData.date).toLocaleDateString('es-ES', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
             </Text>
             {eventData?.city && (
               <Text style={styles.eventLocation}>

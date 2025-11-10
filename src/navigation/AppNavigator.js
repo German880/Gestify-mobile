@@ -17,7 +17,6 @@ import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 // Event Screens
 import EventListScreen from '../screens/events/EventListScreen';
 import EventDetailsScreen from '../screens/events/EventDetailsScreen';
-import EventSearchScreen from '../screens/events/EventSearchScreen';
 import MyEventsScreen from '../screens/events/MyEventsScreen';
 import EventTicketsScreen from '../screens/events/EventTicketsScreen';
 
@@ -93,68 +92,7 @@ const EventsStack = () => {
   );
 };
 
-// Stack de navegación para búsqueda
-const SearchStack = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#365486',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    >
-      <Stack.Screen
-        name="EventSearch"
-        component={EventSearchScreen}
-        options={{
-          title: 'Buscar Eventos',
-        }}
-      />
-      <Stack.Screen
-        name="EventDetails"
-        component={EventDetailsScreen}
-        options={{
-          title: 'Detalles del Evento',
-        }}
-      />
-      {/* Pantallas de compra */}
-      <Stack.Screen
-        name="TicketSelection"
-        component={TicketSelectionScreen}
-        options={{
-          title: 'Seleccionar Tickets',
-        }}
-      />
-      <Stack.Screen
-        name="PurchaseConfirmation"
-        component={PurchaseConfirmationScreen}
-        options={{
-          title: 'Confirmar Compra',
-        }}
-      />
-      <Stack.Screen
-        name="Payment"
-        component={PaymentScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="PurchaseSuccess"
-        component={PurchaseSuccessScreen}
-        options={{
-          title: 'Compra Exitosa',
-          headerLeft: () => null,
-          gestureEnabled: false,
-        }}
-      />
-    </Stack.Navigator>
-  );
-};
+
 
 // Stack de navegación para mis eventos
 const MyEventsStack = () => {
@@ -338,13 +276,7 @@ const MainTabs = () => {
           tabBarLabel: 'Eventos',
         }}
       />
-      <Tab.Screen
-        name="Search"
-        component={SearchStack}
-        options={{
-          tabBarLabel: 'Buscar',
-        }}
-      />
+
       <Tab.Screen
         name="MyEvents"
         component={MyEventsStack}

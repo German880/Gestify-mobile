@@ -118,6 +118,15 @@ const EventTicketsScreen = ({ route, navigation }) => {
   const renderTicketCard = (ticket, index) => {
     const isActive = ticket.status === 'comprada';
 
+    // ✅ Función auxiliar para formatear fechas correctamente
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      // Ajustar por zona horaria sin convertir a UTC
+      const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+      return localDate.toLocaleDateString('es-ES');
+    };
+
     return (
       <View key={index} style={styles.ticketCard}>
         {/* Header del ticket */}
@@ -157,7 +166,7 @@ const EventTicketsScreen = ({ route, navigation }) => {
             <View style={styles.ticketInfoRow}>
               <Calendar size={16} color="#64748b" />
               <Text style={styles.ticketInfoText}>
-                Comprado: {new Date(ticket.purchase_date).toLocaleDateString('es-ES')}
+                Comprado: {formatDate(ticket.purchase_date)}
               </Text>
             </View>
           )}

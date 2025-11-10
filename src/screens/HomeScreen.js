@@ -22,11 +22,49 @@ const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ============================================
+  // FUNCIONES DE FILTRADO DE EVENTOS POR FECHA
+  // ============================================
+
+  /**
+   * Verifica si un evento ya ha finalizado
+   * Comparando la fecha actual con end_datetime
+   */
+  const hasEventEnded = (event) => {
+    const now = new Date();
+    const endDate = new Date(event.end_datetime || event.date);
+    return now > endDate;
+  };
+
+  /**
+   * Verifica si un evento está activo
+   * Comparando si la fecha actual está entre start_datetime y end_datetime
+   */
+  const isEventActive = (event) => {
+    const now = new Date();
+    const startDate = new Date(event.start_datetime || event.date);
+    const endDate = new Date(event.end_datetime || event.date);
+    return now >= startDate && now <= endDate;
+  };
+
+  /**
+   * Filtra eventos para mostrar solo los activos
+   * Los eventos que ya han finalizado se excluyen automáticamente
+   */
+  const filterActiveEvents = (events) => {
+    return events.filter((event) => !hasEventEnded(event));
+  };
+
+  // ============================================
+  // FUNCIONES DE CARGA DE EVENTOS
+  // ============================================
+
   // Función para cargar todos los eventos disponibles
   const fetchAllEvents = async () => {
     try {
       const response = await api.get('/api/events/');
-      return response.data || [];
+      const activeEvents = filterActiveEvents(response.data || []);
+      return activeEvents;
     } catch (error) {
       console.error('Error al cargar eventos:', error);
       return [];
@@ -37,7 +75,8 @@ const HomeScreen = ({ navigation }) => {
   const fetchMyEvents = async () => {
     try {
       const response = await api.get('/my-events/');
-      return response.data || [];
+      const activeMyEvents = filterActiveEvents(response.data || []);
+      return activeMyEvents;
     } catch (error) {
       console.error('Error al cargar mis eventos:', error);
       return [];
@@ -171,7 +210,7 @@ const HomeScreen = ({ navigation }) => {
                 {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}
               </Text>
             </View>
-            
+
             {/* Estados de tickets */}
             <View style={styles.ticketStatusContainer}>
               {eventData.tickets?.map((ticket, index) => (
@@ -248,12 +287,12 @@ const HomeScreen = ({ navigation }) => {
           />
         }
       >
-        {/* Sección: Mis Eventos con Tickets */}
+        {/* Sección: Mis Eventos Activos con Tickets */}
         {myEvents.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ticket size={24} color="#365486" />
-              <Text style={styles.sectionTitle}>Mis Eventos</Text>
+              <Text style={styles.sectionTitle}>Mis Eventos Activos</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
               Eventos donde compraste entradas
@@ -262,22 +301,22 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Sección: Todos los Eventos Disponibles */}
+        {/* Sección: Todos los Eventos Disponibles Activos */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Calendar size={24} color="#365486" />
             <Text style={styles.sectionTitle}>Eventos Disponibles</Text>
           </View>
           <Text style={styles.sectionSubtitle}>
-            Descubre eventos cerca de ti
+            Descubre eventos activos cerca de ti
           </Text>
 
           {allEvents.length === 0 ? (
             <View style={styles.emptyState}>
               <Calendar size={64} color="#cbd5e1" />
-              <Text style={styles.emptyText}>No hay eventos disponibles</Text>
+              <Text style={styles.emptyText}>No hay eventos activos</Text>
               <Text style={styles.emptySubtext}>
-                Los eventos nuevos aparecerán aquí
+                Los nuevos eventos aparecerán aquí
               </Text>
             </View>
           ) : (
