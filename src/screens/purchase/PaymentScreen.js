@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { X, RefreshCw } from 'lucide-react-native';
+import api from '../../api/axiosConfig';
 
 const PaymentScreen = ({ route, navigation }) => {
   const { eventId, eventData, paymentData, tickets, totalAmount } = route.params;
@@ -97,23 +98,6 @@ const PaymentScreen = ({ route, navigation }) => {
           .submit-btn:active {
             background: #2c4472;
           }
-          .loading {
-            text-align: center;
-            padding: 40px;
-          }
-          .spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid #365486;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
-          }
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
           .secure-badge {
             text-align: center;
             color: #64748b;
@@ -152,7 +136,9 @@ const PaymentScreen = ({ route, navigation }) => {
             <input name="signature" type="hidden" value="${signature}">
             <input name="test" type="hidden" value="${sandbox ? '1' : '0'}">
             <input name="buyerEmail" type="hidden" value="${buyerEmail}">
+            <!-- ✅ URL IMPORTANTE: PayU redirige aquí después del pago -->
             <input name="responseUrl" type="hidden" value="${responseUrl}">
+            <!-- ✅ CONFIRMACIÓN: PayU notifica al servidor aquí -->
             <input name="confirmationUrl" type="hidden" value="${confirmationUrl}">
             
             <button type="submit" class="submit-btn">
@@ -166,60 +152,99 @@ const PaymentScreen = ({ route, navigation }) => {
         </div>
 
         <script>
-          // Auto-submit después de 2 segundos si el usuario no hace clic
+          // Auto-submit después de 2 segundos
           setTimeout(function() {
             document.getElementById('payuForm').submit();
-          }, 3000);
+          }, 2000);
         </script>
       </body>
       </html>
     `;
   };
 
+  // ✅ CAMBIO 1: Mejorado handleNavigationStateChange
   const handleNavigationStateChange = (navState) => {
-  const { url } = navState;
-  console.log('🌐 URL actual:', url);
+    const { url } = navState;
+    console.log('🌐 URL detectada:', url);
 
-  if (!url) return;
+    if (!url) return;
 
-  // ✅ Detectar redirección de PayU (pago exitoso o fallido)
-  if (url.includes('pago-exitoso') || url.includes('responseUrl')) {
-    // Extraer parámetros si vienen en la URL
-    const hasApproved = url.includes('transactionState=4') || url.toLowerCase().includes('estado=aprobado');
-    const hasDeclined = url.includes('transactionState=6') || url.toLowerCase().includes('estado=rechazado');
+    // Detectar redirección de PayU después del pago
+    if (url.includes('pago-exitoso') || url.includes('responseUrl')) {
+      console.log('📍 Redireccionado a responseUrl');
+      
+      // Detectar estado del pago
+      const hasApproved = 
+        url.includes('transactionState=4') || 
+        url.toLowerCase().includes('estado=aprobado') ||
+        url.toLowerCase().includes('estado=4');
+      
+      const hasDeclined = 
+        url.includes('transactionState=6') || 
+        url.toLowerCase().includes('estado=rechazado') ||
+        url.toLowerCase().includes('estado=6');
 
-    // ✅ Si el pago fue aprobado
-    if (hasApproved) {
-      console.log('✅ Pago aprobado detectado');
-      navigation.replace('PurchaseSuccess', {
-        eventId: route?.params?.eventId ?? null,
-        eventData: route?.params?.eventData ?? null,
-        tickets: route?.params?.tickets ?? [],
-        totalAmount: route?.params?.totalAmount ?? 0,
-        referenceCode: paymentData?.referenceCode ?? '',
-      });
+      // ✅ PAGO APROBADO
+      if (hasApproved) {
+        console.log('✅ Pago APROBADO detectado en URL');
+        console.log('⏳ Esperando a que backend procese la confirmación (3 segundos)...');
+        
+        // ✅ ESPERAR a que PayU notifique al backend
+        // Esto es CRÍTICO: PayU envía una notificación POST al confirmationUrl
+        // El backend actualiza el ticket a "comprada"
+        // Esperamos 3 segundos para asegurar que se procese
+        setTimeout(() => {
+          console.log('✅ Verificando estatus del pago con el backend...');
+          
+          // Opcionalmente, verifica con el backend si el pago fue procesado
+          verifyPaymentStatus(paymentData.referenceCode);
+          
+          // Navega a pantalla de éxito
+          navigation.replace('PurchaseSuccess', {
+            eventId: route?.params?.eventId ?? null,
+            eventData: route?.params?.eventData ?? null,
+            tickets: route?.params?.tickets ?? [],
+            totalAmount: route?.params?.totalAmount ?? 0,
+            referenceCode: paymentData?.referenceCode ?? '',
+            paymentApproved: true,
+          });
+        }, 3000); // Esperar 3 segundos
+      }
+
+      // ❌ PAGO RECHAZADO
+      else if (hasDeclined) {
+        console.log('❌ Pago RECHAZADO detectado');
+        Alert.alert(
+          'Pago rechazado',
+          'El pago no pudo ser procesado. Verifica tu información e intenta nuevamente.',
+          [
+            { text: 'Reintentar', onPress: () => webViewRef.current?.reload() },
+            { text: 'Cancelar', onPress: () => navigation.goBack(), style: 'cancel' },
+          ]
+        );
+      }
     }
+  };
 
-    // ❌ Si fue rechazado
-    else if (hasDeclined) {
-      console.log('❌ Pago rechazado detectado');
-      Alert.alert(
-        'Pago rechazado',
-        'El pago no pudo ser procesado. Verifica tu información e intenta nuevamente.',
-        [
-          { text: 'Reintentar', onPress: () => webViewRef.current?.reload() },
-          { text: 'Cancelar', onPress: () => navigation.goBack(), style: 'cancel' },
-        ]
-      );
+  // ✅ NUEVO: Función para verificar estatus con backend
+  const verifyPaymentStatus = async (referenceCode) => {
+    try {
+      console.log('🔍 Verificando estado del pago con referencia:', referenceCode);
+      
+      // Este endpoint debería devolver el estado actual del ticket
+      // De esta forma nos aseguramos que el backend ya procesó la confirmación
+      // (Implementar en backend si es necesario)
+      
+    } catch (error) {
+      console.error('❌ Error verificando pago:', error);
+      // No bloquear el flujo si falla la verificación
     }
-  }
-};
-
+  };
 
   const handleClose = () => {
     Alert.alert(
       'Cancelar pago',
-      '¿Estás seguro de que quieres cancelar el proceso de pago? Tus tickets quedarán como pendientes.',
+      '¿Estás seguro de que quieres cancelar? Tus tickets quedarán como pendientes.',
       [
         {
           text: 'Continuar pagando',

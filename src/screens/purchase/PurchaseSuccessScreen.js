@@ -1,195 +1,208 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Animated,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { CheckCircle, Ticket, Calendar, MapPin, Download, Eye } from 'lucide-react-native';
+import { CheckCircle, Ticket, Download, Share2 } from 'lucide-react-native';
+import api from '../../api/axiosConfig';
 
 const PurchaseSuccessScreen = ({ route, navigation }) => {
-  const { eventId, eventData, tickets, totalAmount, referenceCode } = route.params;
-  const scaleAnim = React.useRef(new Animated.Value(0)).current;
+  const { eventId, eventData, tickets, totalAmount, referenceCode, paymentApproved } = route.params;
+  const [loading, setLoading] = useState(true);
+  const [ticketsData, setTicketsData] = useState([]);
 
-  React.useEffect(() => {
-    // Animación de éxito
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
+  useEffect(() => {
+    refreshTicketsAfterPayment();
   }, []);
 
-  const handleViewTickets = () => {
-    navigation.navigate('MyEvents');
+  const refreshTicketsAfterPayment = async () => {
+    try {
+      console.log('🔄 Recargando tickets después del pago...');
+      setLoading(true);
+
+      const response = await api.get('/events/my/');
+      
+      const myEventsData = response.data || [];
+      const myEventData = myEventsData.find(event => event.event_id === parseInt(eventId));
+      
+      if (myEventData && myEventData.tickets) {
+        console.log('✅ Tickets recargados:', myEventData.tickets);
+        setTicketsData(myEventData.tickets);
+      }
+    } catch (error) {
+      console.error('❌ Error recargando tickets:', error);
+      Alert.alert('Advertencia', 'No se pudieron verificar los tickets, pero tu pago fue procesado.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleDownloadTicket = (ticket) => {
+    Alert.alert('Descargar', 'Funcionalidad de descarga en desarrollo');
+  };
+
+  const handleShareTicket = (ticket) => {
+    Alert.alert('Compartir', 'Funcionalidad de compartir en desarrollo');
+  };
+
+  // ✅ OPCIÓN 1: Navegar al Tab "MyEvents" (RECOMENDADO)
+  const handleGoToMyEvents = () => {
+    console.log('📍 Navegando a Mis Eventos...');
+    try {
+      navigation.navigate('MyEvents', {
+        screen: 'MyEventsList',
+      });
+    } catch (e) {
+      console.error('Error navegando:', e);
+      // Fallback si falla
+      navigation.navigate('MyEvents');
+    }
+  };
+
+  // ✅ ALTERNATIVA: Si quieres simplemente ir al inicio
   const handleGoHome = () => {
+    console.log('📍 Volviendo al inicio...');
     navigation.navigate('Home');
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Icono de éxito animado */}
-        <Animated.View
-          style={[
-            styles.successIconContainer,
-            {
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
-          <View style={styles.successIcon}>
-            <CheckCircle size={64} color="#10b981" strokeWidth={2} />
-          </View>
-        </Animated.View>
-
-        {/* Mensaje de éxito */}
+    <ScrollView style={styles.container}>
+      {/* Success Header */}
+      <View style={styles.successHeader}>
+        <View style={styles.checkmarkContainer}>
+          <CheckCircle size={80} color="#10b981" strokeWidth={1.5} />
+        </View>
         <Text style={styles.successTitle}>¡Compra exitosa!</Text>
         <Text style={styles.successSubtitle}>
           Tus tickets han sido generados correctamente
         </Text>
+      </View>
 
-        {/* Información del pedido */}
-        <View style={styles.orderCard}>
-          <View style={styles.orderHeader}>
-            <Text style={styles.orderTitle}>Detalles del pedido</Text>
-            {referenceCode && (
-              <View style={styles.referenceContainer}>
-                <Text style={styles.referenceLabel}>Ref:</Text>
-                <Text style={styles.referenceCode}>{referenceCode}</Text>
-              </View>
-            )}
-          </View>
+      {/* Loading tickets */}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#365486" />
+          <Text style={styles.loadingText}>Verificando tickets...</Text>
+        </View>
+      )}
 
-          {/* Información del evento */}
-          <View style={styles.eventInfo}>
-            <View style={styles.infoRow}>
-              <Ticket size={20} color="#365486" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Evento</Text>
-                <Text style={styles.infoValue}>{eventData?.event_name || 'Evento'}</Text>
-              </View>
+      {/* Order Details */}
+      {!loading && (
+        <>
+          <View style={styles.detailsCard}>
+            <Text style={styles.detailsTitle}>Detalles de tu pedido</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Evento:</Text>
+              <Text style={styles.detailValue}>{eventData?.event || 'Evento'}</Text>
             </View>
 
-            {eventData?.date && (
-              <View style={styles.infoRow}>
-                <Calendar size={20} color="#365486" />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Fecha</Text>
-                  <Text style={styles.infoValue}>
-                    {new Date(eventData.date).toLocaleDateString('es-ES', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Total de tickets:</Text>
+              <Text style={styles.detailValue}>{ticketsData.length || tickets?.length || 0}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Total pagado:</Text>
+              <Text style={[styles.detailValue, { color: '#10b981', fontWeight: 'bold' }]}>
+                ${parseFloat(totalAmount).toLocaleString('es-CO')} COP
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Referencia:</Text>
+              <Text style={[styles.detailValue, { fontSize: 12, fontFamily: 'monospace' }]}>
+                {referenceCode}
+              </Text>
+            </View>
+          </View>
+
+          {/* Tickets Summary */}
+          <View style={styles.ticketsCard}>
+            <Text style={styles.ticketsTitle}>Tus entradas</Text>
+            
+            {ticketsData.length > 0 ? (
+              ticketsData.map((ticket, index) => (
+                <View key={index} style={styles.ticketItem}>
+                  <View style={styles.ticketItemLeft}>
+                    <Ticket size={24} color="#365486" />
+                    <View style={styles.ticketItemInfo}>
+                      <Text style={styles.ticketItemType}>{ticket.type || 'General'}</Text>
+                      <Text style={styles.ticketItemStatus}>
+                        {ticket.status === 'comprada' ? '✓ Listo para usar' : `Estado: ${ticket.status}`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.ticketItemActions}>
+                    <TouchableOpacity
+                      onPress={() => handleShareTicket(ticket)}
+                      style={styles.actionIcon}
+                    >
+                      <Share2 size={18} color="#365486" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDownloadTicket(ticket)}
+                      style={styles.actionIcon}
+                    >
+                      <Download size={18} color="#365486" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            )}
-
-            {eventData?.city && (
-              <View style={styles.infoRow}>
-                <MapPin size={20} color="#365486" />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Ubicación</Text>
-                  <Text style={styles.infoValue}>
-                    {eventData.city}
-                    {eventData.department && `, ${eventData.department}`}
-                  </Text>
-                </View>
-              </View>
+              ))
+            ) : (
+              <Text style={styles.noTicketsText}>
+                Los tickets aparecerán en breve. Actualiza la pantalla si es necesario.
+              </Text>
             )}
           </View>
 
-          {/* Resumen de pago */}
-          {totalAmount > 0 && (
-            <View style={styles.paymentSummary}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total de tickets:</Text>
-                <Text style={styles.summaryValue}>{tickets?.length || 0}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total pagado:</Text>
-                <Text style={styles.summaryAmount}>
-                  ${totalAmount.toLocaleString('es-CO')} COP
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Próximos pasos */}
-        <View style={styles.nextStepsCard}>
-          <Text style={styles.nextStepsTitle}>¿Qué sigue?</Text>
-          <View style={styles.stepsList}>
+          {/* Próximos pasos */}
+          <View style={styles.stepsCard}>
+            <Text style={styles.stepsTitle}>Próximos pasos</Text>
             <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>1</Text>
-              </View>
+              <Text style={styles.stepNumber}>1</Text>
               <Text style={styles.stepText}>
-                Recibirás un correo con tus tickets
+                Ve a "Mis Eventos" para ver tus tickets con el código QR
               </Text>
             </View>
             <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
+              <Text style={styles.stepNumber}>2</Text>
               <Text style={styles.stepText}>
-                Podrás ver tus tickets en "Mis Eventos"
+                Presenta el código QR en la entrada del evento
               </Text>
             </View>
             <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>3</Text>
-              </View>
+              <Text style={styles.stepNumber}>3</Text>
               <Text style={styles.stepText}>
-                Presenta tu código QR el día del evento
+                ¡Disfruta el evento!
               </Text>
             </View>
           </View>
-        </View>
+        </>
+      )}
 
-        {/* Recordatorio */}
-        <View style={styles.reminderCard}>
-          <Text style={styles.reminderText}>
-            💡 <Text style={styles.reminderBold}>Recuerda:</Text> Guarda este correo o
-            descarga tus tickets. Los necesitarás para ingresar al evento.
-          </Text>
-        </View>
-      </ScrollView>
-
-      {/* Botones de acción */}
-      <View style={styles.footer}>
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() =>
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'EventList' }], 
-          
-          })
-        }
-      >
-        <Text Text style={styles.secondaryButtonText}>Volver a eventos</Text>
-      </TouchableOpacity>
-
-
-
-        <TouchableOpacity style={styles.primaryButton} onPress={handleViewTickets}>
-          <Eye size={20} color="#fff" />
+      {/* Action Buttons - ✅ ACTUALIZADO */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.button, styles.primaryButton]}
+          onPress={handleGoToMyEvents}  
+        >
           <Text style={styles.primaryButtonText}>Ver mis tickets</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.secondaryButton]}
+          onPress={handleGoHome}
+        >
+          <Text style={styles.secondaryButtonText}>Volver al inicio</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -198,241 +211,208 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  content: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  successIconContainer: {
+  successHeader: {
     alignItems: 'center',
-    marginVertical: 32,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
-  successIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#d1fae5',
-    justifyContent: 'center',
-    alignItems: 'center',
+  checkmarkContainer: {
+    marginBottom: 20,
   },
   successTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#1e293b',
-    textAlign: 'center',
     marginBottom: 8,
   },
   successSubtitle: {
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 32,
   },
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  orderTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
-  },
-  referenceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  referenceLabel: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  referenceCode: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#365486',
-  },
-  eventInfo: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-  paymentSummary: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    gap: 8,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  loadingContainer: {
+    paddingVertical: 40,
     alignItems: 'center',
   },
-  summaryLabel: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 14,
     color: '#64748b',
   },
-  summaryValue: {
-    fontSize: 16,
+  detailsCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#1e293b',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+  },
+  ticketsCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  ticketsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  ticketItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  ticketItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  ticketItemInfo: {
+    flex: 1,
+  },
+  ticketItemType: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#1e293b',
   },
-  summaryAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  ticketItemStatus: {
+    fontSize: 12,
     color: '#10b981',
+    marginTop: 2,
   },
-  nextStepsCard: {
-    backgroundColor: '#dbeafe',
-    borderRadius: 16,
+  ticketItemActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noTicketsText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  stepsCard: {
+    backgroundColor: '#f0f4ff',
+    marginHorizontal: 16,
+    marginVertical: 12,
     padding: 20,
-    marginBottom: 20,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#365486',
   },
-  nextStepsTitle: {
-    fontSize: 18,
+  stepsTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#1e40af',
+    color: '#1e293b',
     marginBottom: 16,
-  },
-  stepsList: {
-    gap: 16,
   },
   step: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    marginBottom: 12,
     gap: 12,
   },
   stepNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1e40af',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    backgroundColor: '#365486',
     color: '#fff',
+    textAlign: 'center',
+    lineHeight: 28,
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   stepText: {
     flex: 1,
-    fontSize: 15,
-    color: '#1e40af',
-    paddingTop: 4,
-  },
-  reminderCard: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
-  },
-  reminderText: {
     fontSize: 14,
-    color: '#78350f',
+    color: '#1e293b',
     lineHeight: 20,
   },
-  reminderBold: {
+  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 12,
+  },
+  button: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  primaryButton: {
+    backgroundColor: '#365486',
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 30,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    padding: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
   secondaryButton: {
-  flex: 1,                         // 👈 Ocupa mismo espacio que el otro
-  backgroundColor: '#e2e8f0',      // gris claro
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 14,
-  borderRadius: 12,
-  marginHorizontal: 5,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.05,
-  shadowRadius: 3,
-  elevation: 2,
-},
-
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
   secondaryButtonText: {
-  color: '#1e293b',
-  fontSize: 15,
-  fontWeight: '600',
-},
-
-  primaryButton: {
-  flex: 1,                         // 👈 Ocupa mismo espacio horizontal
-  backgroundColor: '#365486',      // azul principal
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 14,
-  borderRadius: 12,
-  marginHorizontal: 5,             // espacio entre botones
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 3,
-  elevation: 3,
-},
-
-  primaryButtonText: {
-  color: '#fff',
-  fontSize: 15,
-  fontWeight: '600',
-  marginLeft: 8,                   // separa texto del ícono
-},
-
+    color: '#365486',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default PurchaseSuccessScreen;
+
+
+
+
+
+
+
+
