@@ -9,92 +9,58 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
-  SectionList,
+  FlatList,
+  Dimensions,
 } from 'react-native';
 import { Bell, User, Calendar, MapPin, ChevronRight, Ticket } from 'lucide-react-native';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api/axiosConfig';
 
+const { width } = Dimensions.get('window');
+const CAROUSEL_WIDTH = width - 40;
+const CAROUSEL_HEIGHT = 200;
+
 const HomeScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const [allEvents, setAllEvents] = useState([]);
-  const [myEvents, setMyEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
-  // ============================================
-  // FUNCIONES DE FILTRADO DE EVENTOS POR FECHA
-  // ============================================
-
-  /**
-   * Verifica si un evento ya ha finalizado
-   * Comparando la fecha actual con end_datetime
-   */
   const hasEventEnded = (event) => {
     const now = new Date();
-    const endDate = new Date(event.end_datetime || event.date);
+    const endDate = new Date(event.end_datetime || event.start_datetime || event.date);
     return now > endDate;
   };
 
-  /**
-   * Verifica si un evento está activo
-   * Comparando si la fecha actual está entre start_datetime y end_datetime
-   */
-  const isEventActive = (event) => {
-    const now = new Date();
-    const startDate = new Date(event.start_datetime || event.date);
-    const endDate = new Date(event.end_datetime || event.date);
-    return now >= startDate && now <= endDate;
-  };
-
-  /**
-   * Filtra eventos para mostrar solo los activos
-   * Los eventos que ya han finalizado se excluyen automáticamente
-   */
   const filterActiveEvents = (events) => {
-    return events.filter((event) => !hasEventEnded(event));
+    return events.filter((event) => {
+      if (!event || event.status !== 'activo') return false;
+      return !hasEventEnded(event);
+    });
   };
 
-  // ============================================
-  // FUNCIONES DE CARGA DE EVENTOS
-  // ============================================
-
-  // Función para cargar todos los eventos disponibles
   const fetchAllEvents = async () => {
     try {
-      const response = await api.get('/api/events/');
-      const activeEvents = filterActiveEvents(response.data || []);
-      return activeEvents;
+      const response = await api.get('/events/');
+      if (response.data && Array.isArray(response.data)) {
+        const activeEvents = filterActiveEvents(response.data);
+        return activeEvents;
+      }
+      return [];
     } catch (error) {
       console.error('Error al cargar eventos:', error);
       return [];
     }
   };
 
-  // Función para cargar eventos donde el usuario compró tickets
-  const fetchMyEvents = async () => {
-    try {
-      const response = await api.get('/my-events/');
-      const activeMyEvents = filterActiveEvents(response.data || []);
-      return activeMyEvents;
-    } catch (error) {
-      console.error('Error al cargar mis eventos:', error);
-      return [];
-    }
-  };
-
-  // Función para cargar ambos tipos de eventos
   const fetchEvents = async () => {
     try {
-      const [events, myEventsData] = await Promise.all([
-        fetchAllEvents(),
-        fetchMyEvents(),
-      ]);
-
-      setAllEvents(events);
-      setMyEvents(myEventsData);
+      const events = await fetchAllEvents();
+      setAllEvents(events || []);
     } catch (error) {
       console.error('Error al cargar datos:', error);
+      setAllEvents([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -105,137 +71,130 @@ const HomeScreen = ({ navigation }) => {
     fetchEvents();
   }, []);
 
-  // Función para refrescar
   const onRefresh = () => {
     setRefreshing(true);
     fetchEvents();
   };
 
-  // Formatear fecha
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return date.toLocaleDateString('es-ES', options);
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return date.toLocaleDateString('es-ES', options);
+    } catch (error) {
+      return '';
+    }
   };
 
-  // Navegar a detalles del evento
-  const goToEventDetails = (eventId) => {
-    navigation.navigate('EventDetails', { eventId });
+  const goToEventDetailsFromCarousel = (event) => {
+    if (event && event.id) {
+      navigation.navigate('Events', {
+        screen: 'EventDetails',
+        params: {
+          eventId: event.id,
+          eventData: event,
+        },
+      });
+    }
   };
 
-  // Renderizar card de evento (para eventos disponibles)
-  const renderEventCard = (event) => (
-    <TouchableOpacity
-      key={event.id}
-      style={styles.eventCard}
-      onPress={() => goToEventDetails(event.id)}
-      activeOpacity={0.7}
-    >
-      <Image
-        source={{
-          uri: event.image || 'https://via.placeholder.com/400x200',
-        }}
-        style={styles.eventImage}
-        resizeMode="cover"
-      />
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventName} numberOfLines={2}>
-          {event.event_name || event.name}
-        </Text>
-        <View style={styles.eventDetailRow}>
-          <Calendar size={16} color="#64748b" />
-          <Text style={styles.eventDetailText}>
-            {formatDate(event.start_datetime || event.date)}
-          </Text>
-        </View>
-        {event.city && (
-          <View style={styles.eventDetailRow}>
-            <MapPin size={16} color="#64748b" />
-            <Text style={styles.eventDetailText} numberOfLines={1}>
-              {event.city}
-            </Text>
-          </View>
-        )}
-        <View style={styles.viewDetailsButton}>
-          <Text style={styles.viewDetailsText}>Ver detalles</Text>
-          <ChevronRight size={16} color="#365486" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  // Renderizar card de mis eventos (con tickets comprados)
-  const renderMyEventCard = (eventData) => {
-    const ticketCount = eventData.tickets?.length || 0;
-    const totalTickets = eventData.tickets?.reduce((sum, ticket) => sum + (ticket.amount || 0), 0) || 0;
+  const renderCarouselItem = ({ item: event }) => {
+    if (!event) return null;
 
     return (
       <TouchableOpacity
-        key={eventData.event_id}
-        style={[styles.eventCard, styles.myEventCard]}
-        onPress={() => goToEventDetails(eventData.event_id)}
-        activeOpacity={0.7}
+        onPress={() => goToEventDetailsFromCarousel(event)}
+        activeOpacity={0.8}
+        style={styles.carouselItemContainer}
       >
-        <View style={styles.myEventBadge}>
-          <Ticket size={16} color="#fff" />
-          <Text style={styles.myEventBadgeText}>Mis Entradas</Text>
-        </View>
-
-        <View style={styles.eventInfo}>
-          <Text style={styles.eventName} numberOfLines={2}>
-            {eventData.event}
+        <Image
+          source={{
+            uri: event.image || 'https://via.placeholder.com/400x200',
+          }}
+          style={styles.carouselImage}
+          resizeMode="cover"
+        />
+        <View style={styles.carouselOverlay}>
+          <Text style={styles.carouselEventName} numberOfLines={2}>
+            {event.event_name || 'Evento'}
           </Text>
-
-          <View style={styles.eventDetailRow}>
-            <Calendar size={16} color="#64748b" />
-            <Text style={styles.eventDetailText}>
-              {formatDate(eventData.date)}
-            </Text>
-          </View>
-
-          {eventData.city && (
-            <View style={styles.eventDetailRow}>
-              <MapPin size={16} color="#64748b" />
-              <Text style={styles.eventDetailText} numberOfLines={1}>
-                {eventData.city}
-              </Text>
-            </View>
-          )}
-
-          {/* Información de tickets */}
-          <View style={styles.ticketInfoContainer}>
-            <View style={styles.ticketInfoBadge}>
-              <Ticket size={14} color="#365486" />
-              <Text style={styles.ticketInfoText}>
-                {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}
-              </Text>
-            </View>
-
-            {/* Estados de tickets */}
-            <View style={styles.ticketStatusContainer}>
-              {eventData.tickets?.map((ticket, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.ticketStatusBadge,
-                    ticket.status === 'comprada' && styles.ticketComprada,
-                    ticket.status === 'usada' && styles.ticketUsada,
-                    ticket.status === 'pendiente' && styles.ticketPendiente,
-                  ]}
-                >
-                  <Text style={styles.ticketStatusText}>
-                    {ticket.status === 'comprada' && '✓ Comprada'}
-                    {ticket.status === 'usada' && '✓ Usada'}
-                    {ticket.status === 'pendiente' && '⏳ Pendiente'}
+          <View style={styles.carouselBottom}>
+            <View style={styles.carouselInfo}>
+              {event.city && (
+                <View style={styles.carouselInfoRow}>
+                  <MapPin size={12} color="#fff" />
+                  <Text style={styles.carouselInfoText}>{event.city}</Text>
+                </View>
+              )}
+              {event.start_datetime && (
+                <View style={styles.carouselInfoRow}>
+                  <Calendar size={12} color="#fff" />
+                  <Text style={styles.carouselInfoText}>
+                    {formatDate(event.start_datetime)}
                   </Text>
                 </View>
-              ))}
+              )}
             </View>
           </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-          <View style={styles.viewDetailsButton}>
-            <Text style={styles.viewDetailsText}>Ver mis tickets</Text>
-            <ChevronRight size={16} color="#365486" />
+  const CarouselPagination = () => {
+    if (!allEvents || allEvents.length === 0) return null;
+
+    return (
+      <View style={styles.paginationContainer}>
+        {allEvents.map((_, index) => (
+          <View
+            key={`dot-${index}`}
+            style={[
+              styles.paginationDot,
+              carouselIndex === index && styles.paginationDotActive,
+            ]}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  const renderFeaturedEventCard = ({ item: event }) => {
+    if (!event) return null;
+
+    return (
+      <TouchableOpacity
+        onPress={() => goToEventDetailsFromCarousel(event)}
+        style={styles.featuredCard}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={{
+            uri: event.image || 'https://via.placeholder.com/200x150',
+          }}
+          style={styles.featuredImage}
+        />
+        <View style={styles.featuredContent}>
+          <Text style={styles.featuredName} numberOfLines={2}>
+            {event.event_name || 'Evento'}
+          </Text>
+          <View style={styles.featuredDetails}>
+            {event.city && (
+              <View style={styles.featuredDetailRow}>
+                <MapPin size={12} color="#64748b" />
+                <Text style={styles.featuredDetailText}>{event.city}</Text>
+              </View>
+            )}
+            {event.start_datetime && (
+              <View style={styles.featuredDetailRow}>
+                <Calendar size={12} color="#64748b" />
+                <Text style={styles.featuredDetailText}>
+                  {formatDate(event.start_datetime)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -251,90 +210,108 @@ const HomeScreen = ({ navigation }) => {
     );
   }
 
+  const userGreeting = user?.name ? `Hola, ${user.name}` : 'Hola';
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name || 'Usuario'} 👋</Text>
-          <Text style={styles.subGreeting}>Bienvenido a Gestify</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <Bell size={24} color="#365486" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <User size={24} color="#365486" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Contenido Principal */}
       <ScrollView
-        style={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={['#365486']}
-            tintColor="#365486"
           />
         }
       >
-        {/* Sección: Mis Eventos Activos con Tickets */}
-        {myEvents.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ticket size={24} color="#365486" />
-              <Text style={styles.sectionTitle}>Mis Eventos Activos</Text>
-            </View>
-            <Text style={styles.sectionSubtitle}>
-              Eventos donde compraste entradas
-            </Text>
-            {myEvents.map((eventData) => renderMyEventCard(eventData))}
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>{userGreeting}</Text>
+            <Text style={styles.subGreeting}>Descubre nuevos eventos</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.profileButton}
+          >
+            <User size={24} color="#365486" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ✅ CARRUSEL DE EVENTOS */}
+        {allEvents && allEvents.length > 0 && (
+          <View style={styles.carouselSection}>
+            <Text style={styles.sectionTitle}>Eventos Destacados</Text>
+            <FlatList
+              data={allEvents}
+              renderItem={renderCarouselItem}
+              keyExtractor={(item, index) => `event-${item?.id || index}`}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const contentOffsetX = event.nativeEvent.contentOffset.x;
+                const currentIndex = Math.round(
+                  contentOffsetX / (CAROUSEL_WIDTH + 20)
+                );
+                setCarouselIndex(currentIndex);
+              }}
+              scrollEventThrottle={16}
+              contentContainerStyle={styles.carouselContent}
+              snapToInterval={CAROUSEL_WIDTH + 20}
+              decelerationRate="fast"
+            />
+            <CarouselPagination />
           </View>
         )}
 
-        {/* Sección: Todos los Eventos Disponibles Activos */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Calendar size={24} color="#365486" />
-            <Text style={styles.sectionTitle}>Eventos Disponibles</Text>
-          </View>
-          <Text style={styles.sectionSubtitle}>
-            Descubre eventos activos cerca de ti
-          </Text>
-
-          {allEvents.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Calendar size={64} color="#cbd5e1" />
-              <Text style={styles.emptyText}>No hay eventos activos</Text>
-              <Text style={styles.emptySubtext}>
-                Los nuevos eventos aparecerán aquí
-              </Text>
+        {/* Todos los eventos activos */}
+        {allEvents && allEvents.length > 0 && (
+          <View style={styles.allEventsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Todos los Eventos</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Events')}
+                style={styles.seeAllButton}
+              >
+                <Text style={styles.seeAllText}>Ver todo</Text>
+                <ChevronRight size={16} color="#365486" />
+              </TouchableOpacity>
             </View>
-          ) : (
-            allEvents.map((event) => renderEventCard(event))
-          )}
-        </View>
+            <FlatList
+              data={allEvents.slice(0, 5)}
+              renderItem={renderFeaturedEventCard}
+              keyExtractor={(item, index) => `all-event-${item?.id || index}`}
+              scrollEnabled={false}
+              contentContainerStyle={styles.eventsList}
+            />
+          </View>
+        )}
+
+        {/* Estado vacío */}
+        {(!allEvents || allEvents.length === 0) && (
+          <View style={styles.emptyContainer}>
+            <Ticket size={48} color="#cbd5e1" />
+            <Text style={styles.emptyText}>No hay eventos disponibles</Text>
+            <Text style={styles.emptySubText}>
+              Vuelve pronto para ver nuevos eventos
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f5fb' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f5fb',
   },
   loadingText: {
     marginTop: 12,
@@ -345,142 +322,187 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  greeting: { fontSize: 24, fontWeight: 'bold', color: '#1e293b' },
-  subGreeting: { fontSize: 14, color: '#64748b', marginTop: 4 },
-  headerButtons: { flexDirection: 'row', gap: 12 },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f0f5fb',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: { flex: 1 },
-  section: { padding: 20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 20,
+  greeting: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1e293b',
-    marginLeft: 8,
   },
-  sectionSubtitle: {
+  subGreeting: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 16,
+    marginTop: 4,
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#64748b',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  eventCard: {
+  profileButton: {
+    width: 48,
+    height: 48,
     backgroundColor: '#fff',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  carouselSection: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  carouselContent: {
+    paddingHorizontal: 20,
+    gap: 20,
+  },
+  carouselItemContainer: {
+    width: CAROUSEL_WIDTH,
+    height: CAROUSEL_HEIGHT,
     borderRadius: 16,
-    marginBottom: 16,
+    overflow: 'hidden',
+    backgroundColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  carouselEventName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  carouselBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  carouselInfo: {
+    gap: 6,
+  },
+  carouselInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  carouselInfoText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    marginBottom: 24,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#cbd5e1',
+  },
+  paginationDotActive: {
+    backgroundColor: '#365486',
+    width: 24,
+  },
+  allEventsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeAllText: {
+    fontSize: 13,
+    color: '#365486',
+    fontWeight: '600',
+  },
+  eventsList: {
+    gap: 12,
+  },
+  featuredCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  myEventCard: {
-    borderWidth: 2,
-    borderColor: '#365486',
+  featuredImage: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#e2e8f0',
   },
-  myEventBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#365486',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    zIndex: 10,
+  featuredContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
   },
-  myEventBadgeText: {
-    fontSize: 12,
+  featuredName: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 4,
-  },
-  eventImage: { width: '100%', height: 180, backgroundColor: '#e2e8f0' },
-  eventInfo: { padding: 16 },
-  eventName: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 12 },
-  eventDetailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  eventDetailText: { fontSize: 14, color: '#64748b', marginLeft: 8, flex: 1 },
-  ticketInfoContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  ticketInfoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f5fb',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    color: '#1e293b',
     marginBottom: 8,
   },
-  ticketInfoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#365486',
-    marginLeft: 6,
+  featuredDetails: {
+    gap: 4,
   },
-  ticketStatusContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
-  },
-  ticketStatusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  ticketComprada: { backgroundColor: '#d1fae5' },
-  ticketUsada: { backgroundColor: '#e0e7ff' },
-  ticketPendiente: { backgroundColor: '#fef3c7' },
-  ticketStatusText: { fontSize: 12, fontWeight: '600' },
-  viewDetailsButton: {
+  featuredDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    gap: 6,
   },
-  viewDetailsText: { fontSize: 14, fontWeight: '600', color: '#365486', marginRight: 4 },
+  featuredDetailText: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  emptySubText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+  },
 });
 
 export default HomeScreen;

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Image,
 } from 'react-native';
 import {
   Ticket,
@@ -146,17 +145,13 @@ const MyEventsScreen = ({ navigation }) => {
       (sum, ticket) => sum + (ticket.amount || 0),
       0
     ) || 0;
-    
-    const activeTickets = eventData.tickets?.filter(
-      ticket => ticket.status === 'comprada'
-    ).length || 0;
 
-    // ✅ Usa end_datetime si existe, si no start_datetime, si no date
     const eventDate = eventData.end_datetime || eventData.start_datetime || eventData.date;
+    const isPassed = isEventPassed(eventData);
 
     return (
       <TouchableOpacity
-        style={styles.eventCard}
+        style={[styles.eventCard, isPassed && styles.eventCardPassed]}
         onPress={() =>
           navigation.navigate('EventTickets', {
             eventId: eventData.event_id,
@@ -165,14 +160,6 @@ const MyEventsScreen = ({ navigation }) => {
         }
         activeOpacity={0.7}
       >
-        {/* Imagen del evento */}
-        <Image
-          source={{
-            uri: eventData.image || 'https://via.placeholder.com/400x200',
-          }}
-          style={styles.eventImage}
-        />
-
         {/* Badge de mis tickets */}
         <View style={styles.ticketBadge}>
           <Ticket size={14} color="#fff" />
@@ -183,72 +170,72 @@ const MyEventsScreen = ({ navigation }) => {
 
         {/* Contenido */}
         <View style={styles.eventContent}>
-          {/* Título del evento */}
+          {/* Nombre del evento */}
           <Text style={styles.eventTitle} numberOfLines={2}>
             {eventData.event}
           </Text>
 
-          {/* Información del evento */}
-          <View style={styles.eventInfo}>
-            <View style={styles.infoRow}>
-              <Calendar size={16} color="#64748b" />
-              <Text style={styles.infoText}>{formatDate(eventData.start_datetime || eventData.date)}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Clock size={16} color="#64748b" />
-              <Text style={styles.infoText}>{formatTime(eventData.start_datetime || eventData.date)}</Text>
-            </View>
-
+          {/* Detalles del evento */}
+          <View style={styles.eventDetails}>
+            {eventDate && (
+              <>
+                <View style={styles.detailRow}>
+                  <Calendar size={14} color="#64748b" />
+                  <Text style={styles.detailText}>
+                    {formatDate(eventDate)}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Clock size={14} color="#64748b" />
+                  <Text style={styles.detailText}>
+                    {formatTime(eventDate)}
+                  </Text>
+                </View>
+              </>
+            )}
             {eventData.city && (
-              <View style={styles.infoRow}>
-                <MapPin size={16} color="#64748b" />
-                <Text style={styles.infoText} numberOfLines={1}>
-                  {eventData.city}
-                </Text>
+              <View style={styles.detailRow}>
+                <MapPin size={14} color="#64748b" />
+                <Text style={styles.detailText}>{eventData.city}</Text>
               </View>
             )}
           </View>
 
           {/* Estados de tickets */}
-          <View style={styles.ticketsStatusContainer}>
-            <Text style={styles.ticketsStatusTitle}>Mis entradas:</Text>
-            <View style={styles.ticketsStatusList}>
-              {eventData.tickets?.map((ticket, index) => (
-                <View
-                  key={index}
+          <View style={styles.ticketStatusContainer}>
+            {eventData.tickets?.slice(0, 2).map((ticket, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.ticketStatusBadge,
+                  { backgroundColor: getTicketStatusColor(ticket.status) + '20' },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.ticketStatusChip,
-                    { backgroundColor: getTicketStatusColor(ticket.status) + '20' },
+                    styles.ticketStatusText,
+                    { color: getTicketStatusColor(ticket.status) },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.ticketStatusDot,
-                      { backgroundColor: getTicketStatusColor(ticket.status) },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.ticketStatusText,
-                      { color: getTicketStatusColor(ticket.status) },
-                    ]}
-                  >
-                    {ticket.type} - {getTicketStatusText(ticket.status)} ({ticket.amount})
-                  </Text>
-                </View>
-              ))}
-            </View>
+                  {getTicketStatusText(ticket.status)}
+                </Text>
+              </View>
+            ))}
+            {(eventData.tickets?.length || 0) > 2 && (
+              <View style={styles.moreTicketsBadge}>
+                <Text style={styles.moreTicketsText}>
+                  +{eventData.tickets.length - 2}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Footer con acción */}
-          <View style={styles.cardFooter}>
-            <View style={styles.qrButton}>
-              <QrCode size={16} color="#365486" />
-              <Text style={styles.qrButtonText}>Ver QR</Text>
-            </View>
-            <ChevronRight size={20} color="#365486" />
-          </View>
+          {/* Flecha */}
+          <ChevronRight
+            size={20}
+            color="#cbd5e1"
+            style={styles.chevron}
+          />
         </View>
       </TouchableOpacity>
     );
@@ -407,10 +394,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  eventImage: {
-    width: '100%',
-    height: 160,
-    backgroundColor: '#e2e8f0',
+  eventCardPassed: {
+    opacity: 0.7,
   },
   ticketBadge: {
     position: 'absolute',
@@ -433,38 +418,29 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   eventTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1e293b',
     marginBottom: 12,
   },
-  eventInfo: {
+  eventDetails: {
     gap: 8,
     marginBottom: 12,
   },
-  infoRow: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  infoText: {
+  detailText: {
     fontSize: 14,
     color: '#64748b',
     flex: 1,
   },
-  ticketsStatusContainer: {
+  ticketStatusContainer: {
     marginBottom: 12,
   },
-  ticketsStatusTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 8,
-  },
-  ticketsStatusList: {
-    gap: 8,
-  },
-  ticketStatusChip: {
+  ticketStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -472,33 +448,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  ticketStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   ticketStatusText: {
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
   },
-  cardFooter: {
-    flexDirection: 'row',
+  moreTicketsBadge: {
+    backgroundColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
   },
-  qrButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  moreTicketsText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1e293b',
   },
-  qrButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#365486',
+  chevron: {
+    marginLeft: 'auto',
   },
   emptyContainer: {
     flex: 1,

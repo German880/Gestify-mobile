@@ -65,7 +65,7 @@ const PurchaseConfirmationScreen = ({ route, navigation }) => {
         // Usamos el config_type_id devuelto por la respuesta de /buy/ (firstTicket.config_type_id)
         const paymentResponse = await api.post(`/events/${eventId}/pay/`, {
           config_type_id: firstTicket.config_type_id, // ✅ ID del TicketTypeEvent
-          amount: parseFloat(totalToPay) || parseFloat(totalAmount) || 0 // ✅ total monetario
+          amount: route.params?.totalQuantity || getTotalQuantity() || 1 // ✅ total monetario
         });
 
         console.log('Datos de pago:', paymentResponse.data);
