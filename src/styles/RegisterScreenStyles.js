@@ -96,4 +96,24 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  sectionTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#1e293b',
+  marginTop: 24,
+  marginBottom: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: '#e2e8f0',
+  paddingBottom: 8,
+},
+
+pickerContainer: {
+  borderWidth: 1,
+  borderColor: '#e2e8f0',
+  borderRadius: 8,
+  backgroundColor: '#f8fafc',
+  marginTop: 4,
+  overflow: 'hidden',
+},
+
 });

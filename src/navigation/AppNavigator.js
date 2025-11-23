@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Search, Ticket, User } from 'lucide-react-native';
+import { Home, Ticket } from 'lucide-react-native';
 import { AuthContext } from '../context/AuthContext';
 
 // Auth Screens
@@ -29,124 +29,89 @@ import PurchaseSuccessScreen from '../screens/purchase/PurchaseSuccessScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Stack de navegación para eventos
+// ============================================
+// HEADER CONFIGURATION (Reutilizable)
+// ============================================
+const headerConfig = {
+  headerStyle: {
+    backgroundColor: '#365486',
+  },
+  headerTintColor: '#fff',
+  headerTitleStyle: {
+    fontWeight: 'bold',
+  },
+};
+
+// ============================================
+// EVENT STACKS
+// ============================================
+
 const EventsStack = () => {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#365486',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    >
+    <Stack.Navigator screenOptions={headerConfig}>
       <Stack.Screen
         name="EventList"
         component={EventListScreen}
-        options={{
-          title: 'Todos los Eventos',
-        }}
+        options={{ title: 'Todos los Eventos' }}
       />
       <Stack.Screen
         name="EventDetails"
         component={EventDetailsScreen}
-        options={{
-          title: 'Detalles del Evento',
-        }}
+        options={{ title: 'Detalles del Evento' }}
       />
-      {/* Pantallas de compra */}
       <Stack.Screen
         name="TicketSelection"
         component={TicketSelectionScreen}
-        options={{
-          title: 'Seleccionar Tickets',
-        }}
+        options={{ title: 'Seleccionar Tickets' }}
       />
       <Stack.Screen
         name="PurchaseConfirmation"
         component={PurchaseConfirmationScreen}
-        options={{
-          title: 'Confirmar Compra',
-        }}
+        options={{ title: 'Confirmar Compra' }}
       />
       <Stack.Screen
         name="Payment"
         component={PaymentScreen}
-        options={{
-          headerShown: false, // Ocultar header en WebView
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PurchaseSuccess"
         component={PurchaseSuccessScreen}
         options={{
           title: 'Compra Exitosa',
-          headerLeft: () => null, // Prevenir volver atrás
-          gestureEnabled: false, // Deshabilitar swipe back en iOS
+          headerLeft: () => null,
+          gestureEnabled: false,
         }}
       />
     </Stack.Navigator>
   );
 };
 
-
-
-// Stack de navegación para mis eventos
 const MyEventsStack = () => {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#365486',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    >
+    <Stack.Navigator screenOptions={headerConfig}>
       <Stack.Screen
         name="MyEventsList"
         component={MyEventsScreen}
-        options={{
-          title: 'Mis Eventos',
-        }}
+        options={{ title: 'Mis Eventos' }}
       />
       <Stack.Screen
         name="EventTickets"
         component={EventTicketsScreen}
-        options={{
-          title: 'Mis Tickets',
-        }}
+        options={{ title: 'Mis Tickets' }}
       />
       <Stack.Screen
         name="EventDetails"
         component={EventDetailsScreen}
-        options={{
-          title: 'Detalles del Evento',
-        }}
+        options={{ title: 'Detalles del Evento' }}
       />
     </Stack.Navigator>
   );
 };
 
-// Stack de navegación para el Home
 const HomeStack = () => {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#365486',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    >
+    <Stack.Navigator screenOptions={headerConfig}>
       <Stack.Screen
         name="HomeMain"
         component={HomeScreen}
@@ -158,31 +123,22 @@ const HomeStack = () => {
       <Stack.Screen
         name="EventDetails"
         component={EventDetailsScreen}
-        options={{
-          title: 'Detalles del Evento',
-        }}
+        options={{ title: 'Detalles del Evento' }}
       />
-      {/* Pantallas de compra */}
       <Stack.Screen
         name="TicketSelection"
         component={TicketSelectionScreen}
-        options={{
-          title: 'Seleccionar Tickets',
-        }}
+        options={{ title: 'Seleccionar Tickets' }}
       />
       <Stack.Screen
         name="PurchaseConfirmation"
         component={PurchaseConfirmationScreen}
-        options={{
-          title: 'Confirmar Compra',
-        }}
+        options={{ title: 'Confirmar Compra' }}
       />
       <Stack.Screen
         name="Payment"
         component={PaymentScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PurchaseSuccess"
@@ -196,33 +152,46 @@ const HomeStack = () => {
       <Stack.Screen
         name="EventTickets"
         component={EventTicketsScreen}
-        options={{
-          title: 'Mis Tickets',
-        }}
+        options={{ title: 'Mis Tickets' }}
       />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={{
-          title: 'Notificaciones',
-        }}
+        options={{ title: 'Notificaciones' }}
       />
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          title: 'Mi Perfil',
-        }}
+        options={{ title: 'Mi Perfil' }}
       />
     </Stack.Navigator>
   );
 };
 
-// Navegación de pestañas principales (Tabs)
+// ============================================
+// FUNCIÓN AUXILIAR PARA ICONOS
+// ============================================
+const getTabIcon = (routeName) => {
+  switch (routeName) {
+    case 'Home':
+      return <Home size={24} color="currentColor" />;
+    case 'Events':
+      return <Ticket size={24} color="currentColor" />;
+    case 'MyEvents':
+      return <Ticket size={24} color="currentColor" />;
+    default:
+      return <Home size={24} color="currentColor" />;
+  }
+};
+
+// ============================================
+// MAIN TABS - ESTRUCTURA SIMPLIFICADA
+// ============================================
+
 const MainTabs = () => {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#365486',
         tabBarInactiveTintColor: '#64748b',
@@ -238,35 +207,20 @@ const MainTabs = () => {
           fontSize: 12,
           fontWeight: '600',
         },
+        // ✅ Iconos SIMPLES sin usar route (evita el error de 'container' undefined)
         tabBarIcon: ({ color, size }) => {
-          let IconComponent;
-
-          switch (route.name) {
-            case 'Home':
-              IconComponent = Home;
-              break;
-            case 'Events':
-              IconComponent = Ticket;
-              break;
-            case 'Search':
-              IconComponent = Search;
-              break;
-            case 'MyEvents':
-              IconComponent = Ticket;
-              break;
-            default:
-              IconComponent = Home;
-          }
-
-          return <IconComponent size={size} color={color} />;
+          return <Home size={size} color={color} />;
         },
-      })}
+      }}
     >
       <Tab.Screen
         name="Home"
         component={HomeStack}
         options={{
           tabBarLabel: 'Inicio',
+          tabBarIcon: ({ color, size }) => (
+            <Home size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -274,21 +228,29 @@ const MainTabs = () => {
         component={EventsStack}
         options={{
           tabBarLabel: 'Eventos',
+          tabBarIcon: ({ color, size }) => (
+            <Ticket size={size} color={color} />
+          ),
         }}
       />
-
       <Tab.Screen
         name="MyEvents"
         component={MyEventsStack}
         options={{
           tabBarLabel: 'Mis Tickets',
+          tabBarIcon: ({ color, size }) => (
+            <Ticket size={size} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
   );
 };
 
-// Stack de autenticación
+// ============================================
+// AUTH STACK
+// ============================================
+
 const AuthStack = () => {
   return (
     <Stack.Navigator
@@ -302,12 +264,15 @@ const AuthStack = () => {
   );
 };
 
-// Navegador principal de la aplicación
+// ============================================
+// APP NAVIGATOR (ROOT)
+// ============================================
+
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
-    return null; // O un componente de carga
+    return null;
   }
 
   return (

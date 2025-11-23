@@ -1,8 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ✅ CRITICAL: Update this IP to match your Django backend IP
+// Get it from: adb shell netstat or check your Django server console
 const API_URL = __DEV__ 
-  ? 'http://192.168.1.3:8000/api'
+  ? 'http://192.168.1.3:8000:8000/api'
   : 'https://tu-backend-produccion.com/api';
 
 const axiosInstance = axios.create({
@@ -13,13 +15,12 @@ const axiosInstance = axios.create({
   },
 });
 
-// Interceptor para agregar token
-// ✅ CORREGIDO: Usa 'Token' en lugar de 'Bearer' para Django TokenAuthentication
+// Request interceptor: Add authentication token
 axiosInstance.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('access_token');
     if (token) {
-      // 🔧 CAMBIO: De 'Bearer ${token}' a 'Token ${token}'
+      // ✅ Django uses "Token" not "Bearer"
       config.headers.Authorization = `Token ${token}`;
     }
     return config;
@@ -27,16 +28,17 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores
+// Response interceptor: Handle 401 errors
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Si obtiene 401, el token es inválido o expiró
+      // Token invalid or expired, clear stored credentials
       await AsyncStorage.removeItem('access_token');
       await AsyncStorage.removeItem('refresh_token');
       await AsyncStorage.removeItem('user_data');
-      // Opcionalmente, puedes redirigir al login aquí
+      // Optionally navigate to login here if you have access to navigation
+      console.warn('🔓 Token expirado. Redirigiendo a login...');
     }
     return Promise.reject(error);
   }
