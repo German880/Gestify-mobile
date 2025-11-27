@@ -8,6 +8,7 @@ import { AuthContext } from '../context/AuthContext';
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 
 // Main Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -207,7 +208,6 @@ const MainTabs = () => {
           fontSize: 12,
           fontWeight: '600',
         },
-        // ✅ Iconos SIMPLES sin usar route (evita el error de 'container' undefined)
         tabBarIcon: ({ color, size }) => {
           return <Home size={size} color={color} />;
         },
@@ -248,7 +248,7 @@ const MainTabs = () => {
 };
 
 // ============================================
-// AUTH STACK
+// AUTH STACK - INCLUYE EMAIL VERIFICATION
 // ============================================
 
 const AuthStack = () => {
@@ -260,6 +260,19 @@ const AuthStack = () => {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      {/* ✅ Nueva pantalla de verificación de correo */}
+      <Stack.Screen 
+        name="EmailVerification" 
+        component={EmailVerificationScreen}
+        options={{
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#365486',
+          },
+          headerTintColor: '#fff',
+          headerTitle: 'Verificar Correo',
+        }}
+      />
     </Stack.Navigator>
   );
 };

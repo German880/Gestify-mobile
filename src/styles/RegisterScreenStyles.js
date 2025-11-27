@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+const RegisterScreenStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f5fb',
@@ -97,23 +97,38 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionTitle: {
-  fontSize: 16,
-  fontWeight: '700',
-  color: '#1e293b',
-  marginTop: 24,
-  marginBottom: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: '#e2e8f0',
-  paddingBottom: 8,
-},
-
-pickerContainer: {
-  borderWidth: 1,
-  borderColor: '#e2e8f0',
-  borderRadius: 8,
-  backgroundColor: '#f8fafc',
-  marginTop: 4,
-  overflow: 'hidden',
-},
-
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginTop: 24,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: 8,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  link: {
+    color: '#365486',
+    textAlign: 'center',
+    marginTop: 15,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
+
+export default RegisterScreenStyles;

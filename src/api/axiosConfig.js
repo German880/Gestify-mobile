@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ✅ CRITICAL: Update this IP to match your Django backend IP
 // Get it from: adb shell netstat or check your Django server console
 const API_URL = __DEV__ 
-  ? 'http://192.168.1.3:8000:8000/api'
+  ? 'http://192.168.1.3:8000/api'
   : 'https://tu-backend-produccion.com/api';
 
 const axiosInstance = axios.create({

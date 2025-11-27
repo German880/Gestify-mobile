@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import api from '../../api/axiosConfig';
 import {
@@ -19,8 +20,9 @@ import {
 } from '../../services/catalogService';
 import RegisterScreenStyles from '../../styles/RegisterScreenStyles';
 
-const RegisterScreen = ({ navigation }) => {
-  // Form data
+const RegisterScreen = () => {
+  const navigation = useNavigation();
+
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -28,7 +30,7 @@ const RegisterScreen = ({ navigation }) => {
     lastName: '',
     phone: '',
     birthDate: '',
-    documentType: 'CC',
+    documentType: '', // ✅ Vacío por defecto para forzar selección
     document: '',
     country: 'Colombia',
     department: '',
@@ -37,16 +39,13 @@ const RegisterScreen = ({ navigation }) => {
     passwordConfirm: '',
   });
 
-  // UI states
   const [loading, setLoading] = useState(false);
   const [catalogsReady, setCatalogsReady] = useState(false);
 
-  // Catalog data
   const [departments, setDepartments] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
   const [cities, setCities] = useState([]);
 
-  // Initialize form with cached catalogs
   useEffect(() => {
     const loadCatalogs = () => {
       try {
@@ -60,7 +59,6 @@ const RegisterScreen = ({ navigation }) => {
           console.log('✅ Catálogos cargados desde caché');
         } else {
           console.warn('⚠️ Catálogos aún no disponibles');
-          // Retry after 1 second
           setTimeout(loadCatalogs, 1000);
         }
       } catch (error) {
@@ -72,13 +70,12 @@ const RegisterScreen = ({ navigation }) => {
     loadCatalogs();
   }, []);
 
-  // Load cities when department changes
   const handleDepartmentChange = useCallback(
     async (departmentId) => {
       setFormData((prev) => ({
         ...prev,
         department: departmentId,
-        city: '', // Reset city
+        city: '',
       }));
 
       if (!departmentId) {
@@ -87,10 +84,8 @@ const RegisterScreen = ({ navigation }) => {
       }
 
       try {
-        // Try cached first
         let citiesList = getCachedCitiesByDepartment(departmentId);
 
-        // If not cached, fetch
         if (!citiesList) {
           console.log(`🔄 Cargando ciudades para dpto ${departmentId}...`);
           citiesList = await fetchCitiesByDepartment(departmentId);
@@ -140,6 +135,11 @@ const RegisterScreen = ({ navigation }) => {
       Alert.alert('Error', 'Documento es requerido');
       return false;
     }
+    // ✅ Validar que documentType está seleccionado
+    if (!formData.documentType) {
+      Alert.alert('Error', 'Tipo de documento es requerido');
+      return false;
+    }
     if (!formData.department) {
       Alert.alert('Error', 'Departamento es requerido');
       return false;
@@ -164,43 +164,82 @@ const RegisterScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // Prepare request body matching backend expectations
+      // ✅ CORRECCIÓN: Convertir correctamente a números
+      const documentTypeId = parseInt(formData.documentType, 10);
+      const departmentId = parseInt(formData.department, 10);
+      const cityId = parseInt(formData.city, 10);
+
+      // Validar conversiones
+      if (isNaN(documentTypeId) || isNaN(departmentId) || isNaN(cityId)) {
+        Alert.alert('Error', 'Error al procesar los datos seleccionados');
+        setLoading(false);
+        return;
+      }
+
       const registrationData = {
         username: formData.username,
         email: formData.email,
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
-        birth_date: formData.birthDate || null,
-        document_type: formData.documentType,
+        // ✅ Solo incluir birth_date si tiene valor
+        ...(formData.birthDate && { birth_date: formData.birthDate }),
+        // ✅ document_type SIEMPRE como número
+        document_type: documentTypeId,
         document: formData.document,
         country: formData.country,
-        department: parseInt(formData.department),
-        city: parseInt(formData.city),
+        // ✅ department y city SIEMPRE como números
+        department: departmentId,
+        city: cityId,
         password: formData.password,
         password_confirm: formData.passwordConfirm,
       };
 
-      console.log('📤 Enviando registro:', registrationData);
+      console.log('📤 Enviando registro:', JSON.stringify(registrationData, null, 2));
 
       const response = await api.post('/users/register/', registrationData);
 
       console.log('✅ Registro exitoso:', response.data);
+
       Alert.alert(
-        'Éxito',
-        'Registración completada. Por favor verifica tu correo.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        'Registro Exitoso',
+        'Se ha enviado un código de verificación a tu correo. Por favor verifica tu identidad.',
+        [
+          {
+            text: 'Verificar Correo',
+            onPress: () =>
+              navigation.navigate('EmailVerification', {
+                email: formData.email,
+              }),
+          },
+        ]
       );
     } catch (error) {
       console.error('❌ Error en registro:', error);
+      console.error('   Response data:', error.response?.data);
+      console.error('   Status:', error.response?.status);
+      console.error('   Message:', error.message);
 
-      const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.non_field_errors?.join(', ') ||
-        error.message ||
-        'Error al registrarse';
+      let errorMessage = 'Error al registrarse';
 
-      Alert.alert('Error', errorMessage);
+      if (error.response?.data) {
+        if (typeof error.response.data === 'object') {
+          const firstError = Object.values(error.response.data)[0];
+          if (Array.isArray(firstError)) {
+            errorMessage = firstError[0];
+          } else if (typeof firstError === 'string') {
+            errorMessage = firstError;
+          } else if (error.response.data.detail) {
+            errorMessage = error.response.data.detail;
+          }
+        } else {
+          errorMessage = error.response.data;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Error de Registro', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -219,7 +258,6 @@ const RegisterScreen = ({ navigation }) => {
     <ScrollView style={RegisterScreenStyles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={RegisterScreenStyles.title}>Registrarse</Text>
 
-      {/* Username */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Usuario"
@@ -228,7 +266,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Email */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Correo electrónico"
@@ -238,7 +275,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* First Name */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Primer nombre"
@@ -247,7 +283,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Last Name */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Apellido"
@@ -256,7 +291,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Phone */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Teléfono"
@@ -266,16 +300,15 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Birth Date */}
       <TextInput
         style={RegisterScreenStyles.input}
-        placeholder="Fecha de nacimiento (YYYY-MM-DD)"
+        placeholder="Fecha de nacimiento (YYYY-MM-DD) - Opcional"
         value={formData.birthDate}
         onChangeText={(value) => handleInputChange('birthDate', value)}
         editable={!loading}
       />
 
-      {/* Document Type */}
+      {/* Document Type - ✅ CORREGIDO */}
       <View style={RegisterScreenStyles.pickerContainer}>
         <Text style={RegisterScreenStyles.pickerLabel}>Tipo de documento:</Text>
         <Picker
@@ -283,17 +316,17 @@ const RegisterScreen = ({ navigation }) => {
           onValueChange={(value) => handleInputChange('documentType', value)}
           enabled={!loading}
         >
+          <Picker.Item label="Selecciona un tipo" value="" />
           {documentTypes.map((docType) => (
             <Picker.Item
-              key={docType.id || docType}
-              label={docType.name || docType}
-              value={docType.id || docType}
+              key={docType.id}
+              label={docType.name}
+              value={docType.id.toString()} // ✅ Convertir a string para el picker
             />
           ))}
         </Picker>
       </View>
 
-      {/* Document */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Número de documento"
@@ -302,7 +335,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Country */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="País"
@@ -340,7 +372,6 @@ const RegisterScreen = ({ navigation }) => {
         </Picker>
       </View>
 
-      {/* Password */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Contraseña"
@@ -350,7 +381,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Password Confirm */}
       <TextInput
         style={RegisterScreenStyles.input}
         placeholder="Confirmar contraseña"
@@ -360,7 +390,6 @@ const RegisterScreen = ({ navigation }) => {
         editable={!loading}
       />
 
-      {/* Register Button */}
       <TouchableOpacity
         style={[
           RegisterScreenStyles.button,
@@ -376,7 +405,6 @@ const RegisterScreen = ({ navigation }) => {
         )}
       </TouchableOpacity>
 
-      {/* Login Link */}
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={RegisterScreenStyles.link}>¿Ya tienes cuenta? Inicia sesión</Text>
       </TouchableOpacity>
